@@ -1,0 +1,6 @@
+[project]
+name = "react_native_nitro_tor"
+source_dir = "src"
+
+[android]
+package_name = "rs.craby.reactnativenitrotor"

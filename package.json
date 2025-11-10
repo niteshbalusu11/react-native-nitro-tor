@@ -1,0 +1,80 @@
+{
+  "name": "react-native-nitro-tor",
+  "version": "0.1.0",
+  "description": "Tor Daemon and Onion Routing Client for React-Native",
+  "workspaces": [
+    "example"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "react-native": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "android",
+    "ios",
+    "cpp",
+    "*.podspec",
+    "react-native.config.js",
+    "!ios/build",
+    "!android/build",
+    "!android/gradle",
+    "!android/gradlew",
+    "!android/gradlew.bat",
+    "!android/local.properties",
+    "!**/__tests__",
+    "!**/__fixtures__",
+    "!**/__mocks__",
+    "!**/.*"
+  ],
+  "scripts": {
+    "prepack": "yarn build",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "build": "craby build && tsdown",
+    "clean": "craby clean"
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "android"
+  ],
+  "author": "Nitesh Balusu <niteshbalusu@icloud.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/niteshbalusu11/react-native-nitro-tor/issues"
+  },
+  "homepage": "https://github.com/niteshbalusu11/react-native-nitro-tor#readme",
+  "dependencies": {
+    "craby-modules": "^0.1.0-rc.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.7",
+    "@react-native-community/cli-types": "^20.0.2",
+    "@types/react": "^19.0.0",
+    "crabygen": "^0.1.0-rc.1",
+    "react": "19.1.1",
+    "react-native": "0.82.1",
+    "tsdown": "^0.15.10",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "packageManager": "yarn@4.10.3"
+}
