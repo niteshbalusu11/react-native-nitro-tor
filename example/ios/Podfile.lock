@@ -2436,7 +2436,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeNitroTor (0.1.0):
+  - ReactNativeNitroTor (0.4.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2781,7 +2781,7 @@ SPEC CHECKSUMS:
   ReactCodegen: 897bad2d2f722ff4dc46fc144f9cc018db0e2ce4
   ReactCommon: c5803af00bd3737dc1631749b1f1da5beba5b049
   ReactNativeFs: 7153adf243d0e6662df54547c327c492a61932f3
-  ReactNativeNitroTor: b966cf9f114883f032fa95e587e9ccb0f0b87670
+  ReactNativeNitroTor: 07f2077442789d9ce415a50fe34d3f003bdb8984
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 689c8e04277f3ad631e60fe2a08e41d411daf8eb
 

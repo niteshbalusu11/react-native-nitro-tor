@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
+    "ios:prebuild": "cd ios && pod install",
+    "build:android": "react-native build-android --extra-params \"--no-daemon --console=plain\"",
+    "build:ios": "react-native build-ios --scheme ReactNativeNitroTorExample --mode Debug --extra-params \"-sdk iphonesimulator ARCHS=arm64 EXCLUDED_ARCHS=x86_64 CC=clang CPLUSPLUS=clang++ LD=clang LDPLUSPLUS=clang++ GCC_OPTIMIZATION_LEVEL=0 GCC_PRECOMPILE_PREFIX_HEADER=YES ASSETCATALOG_COMPILER_OPTIMIZATION=time DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO\"",
+    "build:ios:xcode": "xcodebuild build -workspace ios/ReactNativeNitroTorExample.xcworkspace -scheme ReactNativeNitroTorExample -configuration Debug -sdk iphonesimulator -quiet ARCHS=arm64",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",

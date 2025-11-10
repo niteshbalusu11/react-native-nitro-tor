@@ -1,6 +1,6 @@
 {
   "name": "react-native-nitro-tor",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Tor Daemon and Onion Routing Client for React-Native",
   "workspaces": [
     "example"
@@ -42,6 +42,7 @@
     "!**/.*"
   ],
   "scripts": {
+    "example": "yarn workspace ReactNativeNitroTorExample",
     "prepack": "yarn build",
     "typecheck": "tsc --noEmit",
     "lint": "biome check",
