@@ -4,3 +4,4 @@ pub(crate) mod ffi;
 pub(crate) mod generated;
 
 pub(crate) mod react_native_nitro_tor_impl;
+mod tor;

@@ -1100,7 +1100,7 @@ dependencies = [
 [[package]]
 name = "logger"
 version = "0.1.0"
-source = "git+https://github.com/niteshbalusu11/tor-rust-sdk#3c82d8ed8ff9ba9e890a7369a2a20b203587667b"
+source = "git+https://github.com/niteshbalusu11/tor-rust-sdk?rev=3c82d8ed8ff9ba9e890a7369a2a20b203587667b#3c82d8ed8ff9ba9e890a7369a2a20b203587667b"
 dependencies = [
  "android_logger",
  "env_logger",
@@ -2039,7 +2039,7 @@ checksum = "df8b2b54733674ad286d16267dcfc7a71ed5c776e4ac7aa3c3e2561f7c637bf2"
 [[package]]
 name = "tor"
 version = "0.2.0"
-source = "git+https://github.com/niteshbalusu11/tor-rust-sdk#3c82d8ed8ff9ba9e890a7369a2a20b203587667b"
+source = "git+https://github.com/niteshbalusu11/tor-rust-sdk?rev=3c82d8ed8ff9ba9e890a7369a2a20b203587667b#3c82d8ed8ff9ba9e890a7369a2a20b203587667b"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
