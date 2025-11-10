@@ -2,12 +2,190 @@
 #[rustfmt::skip]
 use craby::prelude::*;
 
+use crate::react_native_nitro_tor_impl::*;
 use crate::generated::*;
 
 use bridging::*;
 
 #[cxx::bridge(namespace = "craby::reactnativenitrotor::bridging")]
 pub mod bridging {
-    extern "Rust" {
+    struct StartTorResponse {
+        is_success: bool,
+        onion_address: String,
+        control: String,
+        error_message: String,
     }
+
+    struct StartTorParams {
+        data_dir: String,
+        key_data: Vec<f64>,
+        socks_port: f64,
+        target_port: f64,
+        timeout_ms: f64,
+    }
+
+    struct HttpPostParams {
+        url: String,
+        body: String,
+        headers: String,
+        timeout_ms: f64,
+    }
+
+    struct HttpGetParams {
+        url: String,
+        headers: String,
+        timeout_ms: f64,
+    }
+
+    struct HiddenServiceParams {
+        port: f64,
+        target_port: f64,
+        key_data: Vec<f64>,
+    }
+
+    struct HttpDeleteParams {
+        url: String,
+        headers: String,
+        timeout_ms: f64,
+    }
+
+    struct TorConfig {
+        socks_port: f64,
+        data_dir: String,
+        timeout_ms: f64,
+    }
+
+    struct HttpResponse {
+        status_code: f64,
+        body: String,
+        error: String,
+    }
+
+    struct HttpPutParams {
+        url: String,
+        body: String,
+        headers: String,
+        timeout_ms: f64,
+    }
+
+    struct HiddenServiceResponse {
+        is_success: bool,
+        onion_address: String,
+        control: String,
+    }
+
+
+
+    extern "Rust" {
+        type ReactNativeNitroTor;
+
+        #[cxx_name = "createReactNativeNitroTor"]
+        fn create_react_native_nitro_tor(id: usize, data_path: &str) -> Box<ReactNativeNitroTor>;
+
+        #[cxx_name = "createHiddenService"]
+        fn react_native_nitro_tor_create_hidden_service(it_: &mut ReactNativeNitroTor, params: HiddenServiceParams) -> Result<HiddenServiceResponse>;
+
+        #[cxx_name = "deleteHiddenService"]
+        fn react_native_nitro_tor_delete_hidden_service(it_: &mut ReactNativeNitroTor, onion_address: &str) -> Result<bool>;
+
+        #[cxx_name = "getServiceStatus"]
+        fn react_native_nitro_tor_get_service_status(it_: &mut ReactNativeNitroTor) -> Result<f64>;
+
+        #[cxx_name = "httpDelete"]
+        fn react_native_nitro_tor_http_delete(it_: &mut ReactNativeNitroTor, params: HttpDeleteParams) -> Result<HttpResponse>;
+
+        #[cxx_name = "httpGet"]
+        fn react_native_nitro_tor_http_get(it_: &mut ReactNativeNitroTor, params: HttpGetParams) -> Result<HttpResponse>;
+
+        #[cxx_name = "httpPost"]
+        fn react_native_nitro_tor_http_post(it_: &mut ReactNativeNitroTor, params: HttpPostParams) -> Result<HttpResponse>;
+
+        #[cxx_name = "httpPut"]
+        fn react_native_nitro_tor_http_put(it_: &mut ReactNativeNitroTor, params: HttpPutParams) -> Result<HttpResponse>;
+
+        #[cxx_name = "initTorService"]
+        fn react_native_nitro_tor_init_tor_service(it_: &mut ReactNativeNitroTor, config: TorConfig) -> Result<bool>;
+
+        #[cxx_name = "shutdownService"]
+        fn react_native_nitro_tor_shutdown_service(it_: &mut ReactNativeNitroTor) -> Result<bool>;
+
+        #[cxx_name = "startTorIfNotRunning"]
+        fn react_native_nitro_tor_start_tor_if_not_running(it_: &mut ReactNativeNitroTor, params: StartTorParams) -> Result<StartTorResponse>;
+    }
+
+}
+
+fn create_react_native_nitro_tor(id: usize, data_path: &str) -> Box<ReactNativeNitroTor> {
+    let ctx = Context::new(id, data_path);
+    Box::new(ReactNativeNitroTor::new(ctx))
+}
+
+fn react_native_nitro_tor_create_hidden_service(it_: &mut ReactNativeNitroTor, params: HiddenServiceParams) -> Result<HiddenServiceResponse, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.create_hidden_service(params);
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_delete_hidden_service(it_: &mut ReactNativeNitroTor, onion_address: &str) -> Result<bool, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.delete_hidden_service(onion_address);
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_get_service_status(it_: &mut ReactNativeNitroTor) -> Result<f64, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.get_service_status();
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_http_delete(it_: &mut ReactNativeNitroTor, params: HttpDeleteParams) -> Result<HttpResponse, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.http_delete(params);
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_http_get(it_: &mut ReactNativeNitroTor, params: HttpGetParams) -> Result<HttpResponse, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.http_get(params);
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_http_post(it_: &mut ReactNativeNitroTor, params: HttpPostParams) -> Result<HttpResponse, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.http_post(params);
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_http_put(it_: &mut ReactNativeNitroTor, params: HttpPutParams) -> Result<HttpResponse, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.http_put(params);
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_init_tor_service(it_: &mut ReactNativeNitroTor, config: TorConfig) -> Result<bool, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.init_tor_service(config);
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_shutdown_service(it_: &mut ReactNativeNitroTor) -> Result<bool, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.shutdown_service();
+        ret
+    }).and_then(|r| r)
+}
+
+fn react_native_nitro_tor_start_tor_if_not_running(it_: &mut ReactNativeNitroTor, params: StartTorParams) -> Result<StartTorResponse, anyhow::Error> {
+    craby::catch_panic!({
+        let ret = it_.start_tor_if_not_running(params);
+        ret
+    }).and_then(|r| r)
 }

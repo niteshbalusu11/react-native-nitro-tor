@@ -132,6 +132,7 @@
           scripts = darwinDerivations.scripts pkgs;
 
           basePackages = with pkgs; [
+            yarn-berry_4
             androidSdk
             autoconf
             automake
@@ -148,11 +149,6 @@
           darwinPackages = with pkgs; [
             bundler
             cocoapods
-            darwin.apple_sdk.frameworks.CoreServices
-            darwin.apple_sdk.frameworks.CoreFoundation
-            darwin.apple_sdk.frameworks.Foundation
-            darwin.apple_sdk.frameworks.Security
-            darwin.apple_sdk.frameworks.SystemConfiguration
             (darwinDerivations.xcode-wrapper pkgs)
             scripts.build-ios
             scripts.build-android

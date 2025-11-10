@@ -2,3 +2,49 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(craby-react-native-nitro-tor)
+
+set (CMAKE_VERBOSE_MAKEFILE ON)
+set (CMAKE_CXX_STANDARD 20)
+
+find_package(ReactAndroid REQUIRED CONFIG)
+
+# Import the pre-built Craby library
+add_library(react-native-nitro-tor-lib STATIC IMPORTED)
+set_target_properties(react-native-nitro-tor-lib PROPERTIES
+  IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/src/main/jni/libs/${ANDROID_ABI}/libreactnativenitrotor-prebuilt.a"
+)
+target_include_directories(react-native-nitro-tor-lib INTERFACE
+  "${CMAKE_SOURCE_DIR}/src/main/jni/include"
+)
+
+# Generated C++ source files by Craby
+add_library(cxx-react-native-nitro-tor SHARED
+  src/main/jni/OnLoad.cpp
+  src/main/jni/src/ffi.rs.cc
+  ../cpp/CxxReactNativeNitroTorModule.cpp
+)
+target_include_directories(cxx-react-native-nitro-tor PRIVATE
+  ../cpp
+)
+
+target_link_libraries(cxx-react-native-nitro-tor
+  # android
+  ReactAndroid::reactnative
+  ReactAndroid::jsi
+  # react-native-nitro-tor-lib
+  react-native-nitro-tor-lib
+)
+
+# From ReactAndroid/cmake-utils/folly-flags.cmake
+target_compile_definitions(cxx-react-native-nitro-tor PRIVATE
+  -DFOLLY_NO_CONFIG=1
+  -DFOLLY_HAVE_CLOCK_GETTIME=1
+  -DFOLLY_USE_LIBCPP=1
+  -DFOLLY_CFG_NO_COROUTINES=1
+  -DFOLLY_MOBILE=1
+  -DFOLLY_HAVE_RECVMMSG=1
+  -DFOLLY_HAVE_PTHREAD=1
+  # Once we target android-23 above, we can comment
+  # the following line. NDK uses GNU style stderror_r() after API 23.
+  -DFOLLY_HAVE_XSI_STRERROR_R=1
+)

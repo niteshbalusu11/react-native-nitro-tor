@@ -22,7 +22,6 @@ buildscript {
 
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
-
 apply plugin: "com.facebook.react"
 
 def getExtOrIntegerDefault(name) {
@@ -30,7 +29,7 @@ def getExtOrIntegerDefault(name) {
 }
 
 android {
-  namespace "com.reactnativenitrotor"
+  namespace "rs.craby.reactnativenitrotor"
 
   compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
 
@@ -44,7 +43,6 @@ android {
         cppFlags "-frtti -fexceptions -Wall -Wextra -fstack-protector-all"
         arguments "-DANDROID_STL=c++_shared", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
         abiFilters (*reactNativeArchitectures())
-
         buildTypes {
           debug {
             cppFlags "-O1 -g"
@@ -107,6 +105,6 @@ dependencies {
 
 react {
   jsRootDir = file("../src/")
-  libraryName = "ReactNativeNitroTor"
-  codegenJavaPackageName = "com.reactnativenitrotor"
+  libraryName = "ReactNativeNitroTor_stub"
+  codegenJavaPackageName = "rs.craby.reactnativenitrotor"
 }

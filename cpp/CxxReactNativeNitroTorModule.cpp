@@ -15,9 +15,392 @@ std::string CxxReactNativeNitroTorModule::dataPath = std::string();
 CxxReactNativeNitroTorModule::CxxReactNativeNitroTorModule(
     std::shared_ptr<react::CallInvoker> jsInvoker)
     : TurboModule(CxxReactNativeNitroTorModule::kModuleName, jsInvoker) {
+  // No signals
+  callInvoker_ = std::move(jsInvoker);
+  module_ = std::shared_ptr<craby::reactnativenitrotor::bridging::ReactNativeNitroTor>(
+    craby::reactnativenitrotor::bridging::createReactNativeNitroTor(
+      reinterpret_cast<uintptr_t>(this),
+      rust::Str(dataPath.data(), dataPath.size())).into_raw(),
+    [](craby::reactnativenitrotor::bridging::ReactNativeNitroTor *ptr) { rust::Box<craby::reactnativenitrotor::bridging::ReactNativeNitroTor>::from_raw(ptr); }
+  );
+  threadPool_ = std::make_shared<craby::reactnativenitrotor::utils::ThreadPool>(10);
+  methodMap_["createHiddenService"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::createHiddenService};
+  methodMap_["deleteHiddenService"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::deleteHiddenService};
+  methodMap_["getServiceStatus"] = MethodMetadata{0, &CxxReactNativeNitroTorModule::getServiceStatus};
+  methodMap_["httpDelete"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::httpDelete};
+  methodMap_["httpGet"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::httpGet};
+  methodMap_["httpPost"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::httpPost};
+  methodMap_["httpPut"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::httpPut};
+  methodMap_["initTorService"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::initTorService};
+  methodMap_["shutdownService"] = MethodMetadata{0, &CxxReactNativeNitroTorModule::shutdownService};
+  methodMap_["startTorIfNotRunning"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::startTorIfNotRunning};
 }
 
 CxxReactNativeNitroTorModule::~CxxReactNativeNitroTorModule() {
+  invalidate();
+}
+
+void CxxReactNativeNitroTorModule::invalidate() {
+  if (invalidated_.exchange(true)) {
+    return;
+  }
+
+  invalidated_.store(true);
+  listenersMap_.clear();
+
+  // No signals
+
+  // Shutdown thread pool
+  threadPool_->shutdown();
+}
+
+jsi::Value CxxReactNativeNitroTorModule::createHiddenService(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0 = react::bridging::fromJs<craby::reactnativenitrotor::bridging::HiddenServiceParams>(rt, args[0], callInvoker);
+    react::AsyncPromise<craby::reactnativenitrotor::bridging::HiddenServiceResponse> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::createHiddenService(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::deleteHiddenService(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0$raw = args[0].asString(rt).utf8(rt);
+    auto arg0 = rust::Str(arg0$raw.data(), arg0$raw.size());
+    react::AsyncPromise<bool> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::deleteHiddenService(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::getServiceStatus(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (0 != count) {
+      throw jsi::JSError(rt, "Expected 0 argument");
+    }
+
+    react::AsyncPromise<double> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::getServiceStatus(*it_);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::httpDelete(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0 = react::bridging::fromJs<craby::reactnativenitrotor::bridging::HttpDeleteParams>(rt, args[0], callInvoker);
+    react::AsyncPromise<craby::reactnativenitrotor::bridging::HttpResponse> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::httpDelete(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::httpGet(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0 = react::bridging::fromJs<craby::reactnativenitrotor::bridging::HttpGetParams>(rt, args[0], callInvoker);
+    react::AsyncPromise<craby::reactnativenitrotor::bridging::HttpResponse> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::httpGet(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::httpPost(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0 = react::bridging::fromJs<craby::reactnativenitrotor::bridging::HttpPostParams>(rt, args[0], callInvoker);
+    react::AsyncPromise<craby::reactnativenitrotor::bridging::HttpResponse> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::httpPost(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::httpPut(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0 = react::bridging::fromJs<craby::reactnativenitrotor::bridging::HttpPutParams>(rt, args[0], callInvoker);
+    react::AsyncPromise<craby::reactnativenitrotor::bridging::HttpResponse> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::httpPut(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::initTorService(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0 = react::bridging::fromJs<craby::reactnativenitrotor::bridging::TorConfig>(rt, args[0], callInvoker);
+    react::AsyncPromise<bool> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::initTorService(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::shutdownService(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (0 != count) {
+      throw jsi::JSError(rt, "Expected 0 argument");
+    }
+
+    react::AsyncPromise<bool> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::shutdownService(*it_);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
+}
+
+jsi::Value CxxReactNativeNitroTorModule::startTorIfNotRunning(jsi::Runtime &rt,
+                                react::TurboModule &turboModule,
+                                const jsi::Value args[],
+                                size_t count) {
+  auto &thisModule = static_cast<CxxReactNativeNitroTorModule &>(turboModule);
+  auto callInvoker = thisModule.callInvoker_;
+  auto it_ = thisModule.module_;
+
+  try {
+    if (1 != count) {
+      throw jsi::JSError(rt, "Expected 1 argument");
+    }
+
+    auto arg0 = react::bridging::fromJs<craby::reactnativenitrotor::bridging::StartTorParams>(rt, args[0], callInvoker);
+    react::AsyncPromise<craby::reactnativenitrotor::bridging::StartTorResponse> promise(rt, callInvoker);
+
+    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+      try {
+        auto ret = craby::reactnativenitrotor::bridging::startTorIfNotRunning(*it_, arg0);
+        promise.resolve(ret);
+      } catch (const jsi::JSError &err) {
+        promise.reject(err.getMessage());
+      } catch (const std::exception &err) {
+        promise.reject(craby::reactnativenitrotor::utils::errorMessage(err));
+      }
+    });
+
+    return react::bridging::toJs(rt, promise);
+  } catch (const jsi::JSError &err) {
+    throw err;
+  } catch (const std::exception &err) {
+    throw jsi::JSError(rt, craby::reactnativenitrotor::utils::errorMessage(err));
+  }
 }
 
 } // namespace modules

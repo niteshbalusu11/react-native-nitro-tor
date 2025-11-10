@@ -87,3 +87,4 @@ ios/framework/
 
 # JavaScript build output
 dist/
+.direnv/
