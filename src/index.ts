@@ -1,1 +1,1 @@
-export { default as ReactNativeNitroTor } from './NativeReactNativeNitroTor';
+export { default as RnTor } from "./NativeReactNativeNitroTor";

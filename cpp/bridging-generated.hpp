@@ -68,16 +68,13 @@ struct Bridging<craby::reactnativenitrotor::bridging::HiddenServiceParams> {
     auto obj = value.asObject(rt);
     auto obj$port = obj.getProperty(rt, "port");
     auto obj$targetPort = obj.getProperty(rt, "target_port");
-    auto obj$keyData = obj.getProperty(rt, "key_data");
 
     auto _obj$port = react::bridging::fromJs<double>(rt, obj$port, callInvoker);
     auto _obj$targetPort = react::bridging::fromJs<double>(rt, obj$targetPort, callInvoker);
-    auto _obj$keyData = react::bridging::fromJs<rust::Vec<double>>(rt, obj$keyData, callInvoker);
 
     craby::reactnativenitrotor::bridging::HiddenServiceParams ret = {
       _obj$port,
-      _obj$targetPort,
-      _obj$keyData
+      _obj$targetPort
     };
 
     return ret;
@@ -87,11 +84,9 @@ struct Bridging<craby::reactnativenitrotor::bridging::HiddenServiceParams> {
     jsi::Object obj = jsi::Object(rt);
     auto _obj$port = react::bridging::toJs(rt, value.port);
     auto _obj$targetPort = react::bridging::toJs(rt, value.target_port);
-    auto _obj$keyData = react::bridging::toJs(rt, value.key_data);
 
     obj.setProperty(rt, "port", _obj$port);
     obj.setProperty(rt, "target_port", _obj$targetPort);
-    obj.setProperty(rt, "key_data", _obj$keyData);
 
     return jsi::Value(rt, obj);
   }
@@ -322,20 +317,17 @@ struct Bridging<craby::reactnativenitrotor::bridging::StartTorParams> {
   static craby::reactnativenitrotor::bridging::StartTorParams fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
     auto obj = value.asObject(rt);
     auto obj$dataDir = obj.getProperty(rt, "data_dir");
-    auto obj$keyData = obj.getProperty(rt, "key_data");
     auto obj$socksPort = obj.getProperty(rt, "socks_port");
     auto obj$targetPort = obj.getProperty(rt, "target_port");
     auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
 
     auto _obj$dataDir = react::bridging::fromJs<rust::String>(rt, obj$dataDir, callInvoker);
-    auto _obj$keyData = react::bridging::fromJs<rust::Vec<double>>(rt, obj$keyData, callInvoker);
     auto _obj$socksPort = react::bridging::fromJs<double>(rt, obj$socksPort, callInvoker);
     auto _obj$targetPort = react::bridging::fromJs<double>(rt, obj$targetPort, callInvoker);
     auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
 
     craby::reactnativenitrotor::bridging::StartTorParams ret = {
       _obj$dataDir,
-      _obj$keyData,
       _obj$socksPort,
       _obj$targetPort,
       _obj$timeoutMs
@@ -347,13 +339,11 @@ struct Bridging<craby::reactnativenitrotor::bridging::StartTorParams> {
   static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::StartTorParams value) {
     jsi::Object obj = jsi::Object(rt);
     auto _obj$dataDir = react::bridging::toJs(rt, value.data_dir);
-    auto _obj$keyData = react::bridging::toJs(rt, value.key_data);
     auto _obj$socksPort = react::bridging::toJs(rt, value.socks_port);
     auto _obj$targetPort = react::bridging::toJs(rt, value.target_port);
     auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
 
     obj.setProperty(rt, "data_dir", _obj$dataDir);
-    obj.setProperty(rt, "key_data", _obj$keyData);
     obj.setProperty(rt, "socks_port", _obj$socksPort);
     obj.setProperty(rt, "target_port", _obj$targetPort);
     obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);

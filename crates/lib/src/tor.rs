@@ -67,32 +67,19 @@ pub fn init_tor_service(socks_port: f64, data_dir: String, timeout_ms: f64) -> b
     }
 }
 
-pub fn create_hidden_service(
-    port: f64,
-    target_port: f64,
-    key_data: Vec<f64>,
-    has_key: bool,
-) -> HiddenServiceResponse {
+pub fn create_hidden_service(port: f64, target_port: f64) -> HiddenServiceResponse {
     let mut service_guard = ensure_tor_service().lock().unwrap();
 
     debug!(
-        "Rust FFI: Creating hidden service with parameters: port={}, target_port={}, has_key={}",
-        port, target_port, has_key
+        "Rust FFI: Creating hidden service with parameters: port={}, target_port={}",
+        port, target_port,
     );
 
     if let Some(service) = service_guard.as_mut() {
-        let mut key_bytes = [0u8; 64];
-
-        if has_key && key_data.len() >= 64 {
-            for (i, &val) in key_data.iter().take(64).enumerate() {
-                key_bytes[i] = val as u8;
-            }
-        }
-
         let param = TorHiddenServiceParam {
             to_port: target_port as u16,
             hs_port: port as u16,
-            secret_key: if has_key { Some(key_bytes) } else { None },
+            secret_key: None,
         };
 
         debug!(
@@ -132,8 +119,6 @@ pub fn create_hidden_service(
 
 pub fn start_tor_if_not_running(
     data_dir: String,
-    key_data: Vec<f64>,
-    has_key: bool,
     socks_port: f64,
     target_port: f64,
     timeout_ms: f64,
@@ -170,7 +155,7 @@ pub fn start_tor_if_not_running(
         );
     }
 
-    let hs_response = create_hidden_service(socks_port, target_port, key_data, has_key);
+    let hs_response = create_hidden_service(socks_port, target_port);
 
     StartTorResponse {
         is_success: hs_response.is_success,

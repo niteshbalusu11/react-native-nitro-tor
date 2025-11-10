@@ -14,13 +14,7 @@ impl ReactNativeNitroTorSpec for ReactNativeNitroTor {
         &mut self,
         params: HiddenServiceParams,
     ) -> Promise<HiddenServiceResponse> {
-        let has_key = !params.key_data.is_empty();
-        Ok(tor::create_hidden_service(
-            params.port,
-            params.target_port,
-            params.key_data,
-            has_key,
-        ))
+        Ok(tor::create_hidden_service(params.port, params.target_port))
     }
 
     fn delete_hidden_service(&mut self, onion_address: &str) -> Promise<Boolean> {
@@ -75,11 +69,8 @@ impl ReactNativeNitroTorSpec for ReactNativeNitroTor {
     }
 
     fn start_tor_if_not_running(&mut self, params: StartTorParams) -> Promise<StartTorResponse> {
-        let has_key = !params.key_data.is_empty();
         Ok(tor::start_tor_if_not_running(
             params.data_dir,
-            params.key_data,
-            has_key,
             params.socks_port,
             params.target_port,
             params.timeout_ms,

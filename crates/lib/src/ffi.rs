@@ -18,7 +18,6 @@ pub mod bridging {
 
     struct StartTorParams {
         data_dir: String,
-        key_data: Vec<f64>,
         socks_port: f64,
         target_port: f64,
         timeout_ms: f64,
@@ -37,16 +36,15 @@ pub mod bridging {
         timeout_ms: f64,
     }
 
-    struct HiddenServiceParams {
-        port: f64,
-        target_port: f64,
-        key_data: Vec<f64>,
-    }
-
     struct HttpDeleteParams {
         url: String,
         headers: String,
         timeout_ms: f64,
+    }
+
+    struct HiddenServiceParams {
+        port: f64,
+        target_port: f64,
     }
 
     struct TorConfig {

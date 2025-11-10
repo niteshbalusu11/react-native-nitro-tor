@@ -10,12 +10,10 @@ export interface TorConfig {
 export interface HiddenServiceParams {
   port: number;
   target_port: number;
-  key_data?: number[]; // Optional key data
 }
 
 export interface StartTorParams {
   data_dir: string;
-  key_data?: number[];
   socks_port: number;
   target_port: number;
   timeout_ms: number;
