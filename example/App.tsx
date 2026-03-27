@@ -17,6 +17,12 @@ import { RnTor } from 'react-native-nitro-tor';
 
 // Constants
 const TOR_DATA_PATH = `${DocumentDirectoryPath}/tor_data`;
+const GET_URL = 'https://httpbin.org/get';
+const ONION_GET_URL =
+  'http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion';
+const POST_URL = 'http://httpbin.org/post';
+const PUT_URL = 'http://httpbin.org/put';
+const DELETE_URL = 'http://httpbin.org/delete';
 
 interface TorState {
   isSuccess: boolean | undefined;
@@ -39,12 +45,16 @@ export default function TorApp() {
     controlUrl: undefined,
   });
   const [getResult, setGetResult] = useState<RequestResult | null>(null);
+  const [onionGetResult, setOnionGetResult] = useState<RequestResult | null>(
+    null,
+  );
   const [postResult, setPostResult] = useState<RequestResult | null>(null);
   const [putResult, setPutResult] = useState<RequestResult | null>(null);
   const [deleteResult, setDeleteResult] = useState<RequestResult | null>(null);
 
   const clearAllResults = () => {
     setGetResult(null);
+    setOnionGetResult(null);
     setPostResult(null);
     setPutResult(null);
     setDeleteResult(null);
@@ -118,7 +128,7 @@ export default function TorApp() {
       const result = await RnTor.httpGet({
         headers: '',
         timeout_ms: 20000,
-        url: 'https://httpbin.org/get',
+        url: GET_URL,
       });
       console.log('httpGet result', result);
       setGetResult({
@@ -136,10 +146,33 @@ export default function TorApp() {
     }
   };
 
+  const onionHttpGet = async () => {
+    try {
+      const result = await RnTor.httpGet({
+        headers: '',
+        timeout_ms: 30000,
+        url: ONION_GET_URL,
+      });
+      console.log('onionHttpGet result', result);
+      setOnionGetResult({
+        status: result.status_code,
+        body: result.body,
+        error: result.error,
+      });
+    } catch (err: any) {
+      console.error('onionHttpGet error', err);
+      setOnionGetResult({
+        status: 0,
+        body: '',
+        error: err.message,
+      });
+    }
+  };
+
   const httpPost = async () => {
     try {
       const result = await RnTor.httpPost({
-        url: 'http://httpbin.org/post',
+        url: POST_URL,
         body: '{"test":"data"}',
         headers: '{"Content-Type":"application/json"}',
         timeout_ms: 20000,
@@ -163,7 +196,7 @@ export default function TorApp() {
   const httpPut = async () => {
     try {
       const result = await RnTor.httpPut({
-        url: 'http://httpbin.org/put',
+        url: PUT_URL,
         body: '{"updated":"value"}',
         headers: '{"Content-Type":"application/json"}',
         timeout_ms: 20000,
@@ -187,7 +220,7 @@ export default function TorApp() {
   const httpDelete = async () => {
     try {
       const result = await RnTor.httpDelete({
-        url: 'http://httpbin.org/delete',
+        url: DELETE_URL,
         headers: '{"Content-Type":"application/json"}',
         timeout_ms: 20000,
       });
@@ -246,10 +279,35 @@ export default function TorApp() {
           )}
 
           <View style={styles.buttonContainer}>
-            <Button title="HTTP GET" onPress={httpGet} />
-            <Button title="HTTP POST" onPress={httpPost} />
-            <Button title="HTTP PUT" onPress={httpPut} />
-            <Button title="HTTP DELETE" onPress={httpDelete} />
+            <View style={styles.buttonCard}>
+              <Button title="HTTP GET" onPress={httpGet} />
+              <Text style={styles.endpointLabel}>GET</Text>
+              <Text style={styles.endpointText}>{GET_URL}</Text>
+            </View>
+
+            <View style={styles.buttonCard}>
+              <Button title="HTTP GET .onion" onPress={onionHttpGet} />
+              <Text style={styles.endpointLabel}>GET</Text>
+              <Text style={styles.endpointText}>{ONION_GET_URL}</Text>
+            </View>
+
+            <View style={styles.buttonCard}>
+              <Button title="HTTP POST" onPress={httpPost} />
+              <Text style={styles.endpointLabel}>POST</Text>
+              <Text style={styles.endpointText}>{POST_URL}</Text>
+            </View>
+
+            <View style={styles.buttonCard}>
+              <Button title="HTTP PUT" onPress={httpPut} />
+              <Text style={styles.endpointLabel}>PUT</Text>
+              <Text style={styles.endpointText}>{PUT_URL}</Text>
+            </View>
+
+            <View style={styles.buttonCard}>
+              <Button title="HTTP DELETE" onPress={httpDelete} />
+              <Text style={styles.endpointLabel}>DELETE</Text>
+              <Text style={styles.endpointText}>{DELETE_URL}</Text>
+            </View>
           </View>
 
           <View style={styles.clearButtonContainer}>
@@ -261,6 +319,7 @@ export default function TorApp() {
           </View>
 
           {renderResult('GET Response', getResult)}
+          {renderResult('Onion GET Response', onionGetResult)}
           {renderResult('POST Response', postResult)}
           {renderResult('PUT Response', putResult)}
           {renderResult('DELETE Response', deleteResult)}
@@ -295,8 +354,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    alignItems: 'stretch',
     marginVertical: 16,
     gap: 10,
+    width: '100%',
+  },
+  buttonCard: {
+    width: '100%',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fafafa',
+  },
+  endpointLabel: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#555',
+  },
+  endpointText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#333',
   },
   resultContainer: {
     width: '100%',

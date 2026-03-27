@@ -62,6 +62,7 @@ jobs:
       - build_ios
     permissions:
       contents: write # Required to create a release and upload assets
+      id-token: write # Required for npm publish
     steps:
       - name: Checkout code at tag
         uses: actions/checkout@v4
@@ -75,10 +76,6 @@ jobs:
 
       - name: Enable Corepack
         run: corepack enable
-
-      - name: Configure npm for publishing
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
-        shell: bash
 
       - name: Install dependencies
         run: yarn install --immutable
