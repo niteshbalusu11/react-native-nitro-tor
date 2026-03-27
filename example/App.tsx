@@ -39,12 +39,16 @@ export default function TorApp() {
     controlUrl: undefined,
   });
   const [getResult, setGetResult] = useState<RequestResult | null>(null);
+  const [onionGetResult, setOnionGetResult] = useState<RequestResult | null>(
+    null,
+  );
   const [postResult, setPostResult] = useState<RequestResult | null>(null);
   const [putResult, setPutResult] = useState<RequestResult | null>(null);
   const [deleteResult, setDeleteResult] = useState<RequestResult | null>(null);
 
   const clearAllResults = () => {
     setGetResult(null);
+    setOnionGetResult(null);
     setPostResult(null);
     setPutResult(null);
     setDeleteResult(null);
@@ -129,6 +133,29 @@ export default function TorApp() {
     } catch (err: any) {
       console.error('httpGet error', err);
       setGetResult({
+        status: 0,
+        body: '',
+        error: err.message,
+      });
+    }
+  };
+
+  const onionHttpGet = async () => {
+    try {
+      const result = await RnTor.httpGet({
+        headers: '',
+        timeout_ms: 30000,
+        url: 'http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion',
+      });
+      console.log('onionHttpGet result', result);
+      setOnionGetResult({
+        status: result.status_code,
+        body: result.body,
+        error: result.error,
+      });
+    } catch (err: any) {
+      console.error('onionHttpGet error', err);
+      setOnionGetResult({
         status: 0,
         body: '',
         error: err.message,
@@ -247,6 +274,7 @@ export default function TorApp() {
 
           <View style={styles.buttonContainer}>
             <Button title="HTTP GET" onPress={httpGet} />
+            <Button title="HTTP GET .onion" onPress={onionHttpGet} />
             <Button title="HTTP POST" onPress={httpPost} />
             <Button title="HTTP PUT" onPress={httpPut} />
             <Button title="HTTP DELETE" onPress={httpDelete} />
@@ -261,6 +289,7 @@ export default function TorApp() {
           </View>
 
           {renderResult('GET Response', getResult)}
+          {renderResult('Onion GET Response', onionGetResult)}
           {renderResult('POST Response', postResult)}
           {renderResult('PUT Response', putResult)}
           {renderResult('DELETE Response', deleteResult)}
