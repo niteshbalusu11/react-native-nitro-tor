@@ -4,11 +4,48 @@
 #include "cxx.h"
 #include "ffi.rs.h"
 #include <react/bridging/Bridging.h>
+#include <variant>
+#include <iterator>
+#include <algorithm>
 
 using namespace facebook;
 
+namespace reactnativenitrotor {
+
+class RustVecBuffer : public jsi::MutableBuffer {
+public:
+  explicit RustVecBuffer(rust::Vec<uint8_t> vec)
+    : vec_(std::move(vec)) {}
+
+  ~RustVecBuffer() override = default;
+
+  size_t size() const override {
+    return vec_.size();
+  }
+
+  uint8_t* data() override {
+    return const_cast<uint8_t*>(vec_.data());
+  }
+
+private:
+  rust::Vec<uint8_t> vec_;
+};
+
+} // namespace reactnativenitrotor
+
 namespace facebook {
 namespace react {
+
+template <>
+struct Bridging<std::monostate> {
+  static std::monostate fromJs(jsi::Runtime& rt, const jsi::Value &value, std::shared_ptr<CallInvoker> callInvoker) {
+    return std::monostate{};
+  }
+
+  static jsi::Value toJs(jsi::Runtime& rt, const std::monostate& value) {
+    return jsi::Value::undefined();
+  }
+};
 
 template <>
 struct Bridging<rust::Str> {
@@ -31,6 +68,26 @@ struct Bridging<rust::String> {
 
   static jsi::Value toJs(jsi::Runtime& rt, const rust::String& value) {
     return react::bridging::toJs(rt, std::string(value.data(), value.size()));
+  }
+};
+
+template <>
+struct Bridging<rust::Vec<uint8_t>> {
+  static rust::Vec<uint8_t> fromJs(jsi::Runtime& rt, const jsi::Value &value, std::shared_ptr<CallInvoker> callInvoker) {
+    auto arrayBuffer = value.asObject(rt).getArrayBuffer(rt);
+    uint8_t* data = arrayBuffer.data(rt);
+    size_t size = arrayBuffer.size(rt);
+    rust::Vec<uint8_t> vec;
+    vec.reserve(size);
+
+    std::copy(data, data + size, std::back_inserter(vec));
+
+    return vec;
+  }
+
+  static jsi::Value toJs(jsi::Runtime& rt, const rust::Vec<uint8_t>& vec) {
+    auto buffer = std::make_shared<reactnativenitrotor::RustVecBuffer>(std::move(vec));
+    return jsi::ArrayBuffer(rt, buffer);
   }
 };
 
@@ -134,15 +191,18 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpDeleteParams> {
     auto obj$url = obj.getProperty(rt, "url");
     auto obj$headers = obj.getProperty(rt, "headers");
     auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
+    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
 
     auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
     auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
     auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
+    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
 
     craby::reactnativenitrotor::bridging::HttpDeleteParams ret = {
       _obj$url,
       _obj$headers,
-      _obj$timeoutMs
+      _obj$timeoutMs,
+      _obj$trustInvalidCerts
     };
 
     return ret;
@@ -153,10 +213,12 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpDeleteParams> {
     auto _obj$url = react::bridging::toJs(rt, value.url);
     auto _obj$headers = react::bridging::toJs(rt, value.headers);
     auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
+    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
 
     obj.setProperty(rt, "url", _obj$url);
     obj.setProperty(rt, "headers", _obj$headers);
     obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
+    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
 
     return jsi::Value(rt, obj);
   }
@@ -169,15 +231,18 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpGetParams> {
     auto obj$url = obj.getProperty(rt, "url");
     auto obj$headers = obj.getProperty(rt, "headers");
     auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
+    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
 
     auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
     auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
     auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
+    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
 
     craby::reactnativenitrotor::bridging::HttpGetParams ret = {
       _obj$url,
       _obj$headers,
-      _obj$timeoutMs
+      _obj$timeoutMs,
+      _obj$trustInvalidCerts
     };
 
     return ret;
@@ -188,10 +253,12 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpGetParams> {
     auto _obj$url = react::bridging::toJs(rt, value.url);
     auto _obj$headers = react::bridging::toJs(rt, value.headers);
     auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
+    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
 
     obj.setProperty(rt, "url", _obj$url);
     obj.setProperty(rt, "headers", _obj$headers);
     obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
+    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
 
     return jsi::Value(rt, obj);
   }
@@ -205,17 +272,20 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpPostParams> {
     auto obj$body = obj.getProperty(rt, "body");
     auto obj$headers = obj.getProperty(rt, "headers");
     auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
+    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
 
     auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
     auto _obj$body = react::bridging::fromJs<rust::String>(rt, obj$body, callInvoker);
     auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
     auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
+    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
 
     craby::reactnativenitrotor::bridging::HttpPostParams ret = {
       _obj$url,
       _obj$body,
       _obj$headers,
-      _obj$timeoutMs
+      _obj$timeoutMs,
+      _obj$trustInvalidCerts
     };
 
     return ret;
@@ -227,11 +297,13 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpPostParams> {
     auto _obj$body = react::bridging::toJs(rt, value.body);
     auto _obj$headers = react::bridging::toJs(rt, value.headers);
     auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
+    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
 
     obj.setProperty(rt, "url", _obj$url);
     obj.setProperty(rt, "body", _obj$body);
     obj.setProperty(rt, "headers", _obj$headers);
     obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
+    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
 
     return jsi::Value(rt, obj);
   }
@@ -245,17 +317,20 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpPutParams> {
     auto obj$body = obj.getProperty(rt, "body");
     auto obj$headers = obj.getProperty(rt, "headers");
     auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
+    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
 
     auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
     auto _obj$body = react::bridging::fromJs<rust::String>(rt, obj$body, callInvoker);
     auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
     auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
+    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
 
     craby::reactnativenitrotor::bridging::HttpPutParams ret = {
       _obj$url,
       _obj$body,
       _obj$headers,
-      _obj$timeoutMs
+      _obj$timeoutMs,
+      _obj$trustInvalidCerts
     };
 
     return ret;
@@ -267,11 +342,13 @@ struct Bridging<craby::reactnativenitrotor::bridging::HttpPutParams> {
     auto _obj$body = react::bridging::toJs(rt, value.body);
     auto _obj$headers = react::bridging::toJs(rt, value.headers);
     auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
+    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
 
     obj.setProperty(rt, "url", _obj$url);
     obj.setProperty(rt, "body", _obj$body);
     obj.setProperty(rt, "headers", _obj$headers);
     obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
+    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
 
     return jsi::Value(rt, obj);
   }

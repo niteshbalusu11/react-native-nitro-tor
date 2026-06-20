@@ -36,6 +36,7 @@ export interface HttpGetParams {
   url: string;
   headers: string;
   timeout_ms: number;
+  trust_invalid_certs: boolean;
 }
 
 export interface HttpPostParams {
@@ -43,6 +44,7 @@ export interface HttpPostParams {
   body: string;
   headers: string;
   timeout_ms: number;
+  trust_invalid_certs: boolean;
 }
 
 export interface HttpPutParams {
@@ -50,12 +52,14 @@ export interface HttpPutParams {
   body: string;
   headers: string;
   timeout_ms: number;
+  trust_invalid_certs: boolean;
 }
 
 export interface HttpDeleteParams {
   url: string;
   headers: string;
   timeout_ms: number;
+  trust_invalid_certs: boolean;
 }
 
 export interface HttpResponse {

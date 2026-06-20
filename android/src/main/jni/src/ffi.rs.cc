@@ -463,16 +463,16 @@ public:
 namespace craby {
   namespace reactnativenitrotor {
     namespace bridging {
-      struct StartTorResponse;
+      struct HttpResponse;
       struct StartTorParams;
-      struct HttpPostParams;
-      struct HttpGetParams;
+      struct StartTorResponse;
+      struct HttpPutParams;
       struct HttpDeleteParams;
+      struct HiddenServiceResponse;
       struct HiddenServiceParams;
       struct TorConfig;
-      struct HttpResponse;
-      struct HttpPutParams;
-      struct HiddenServiceResponse;
+      struct HttpGetParams;
+      struct HttpPostParams;
       struct ReactNativeNitroTor;
     }
   }
@@ -481,17 +481,16 @@ namespace craby {
 namespace craby {
 namespace reactnativenitrotor {
 namespace bridging {
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
-struct StartTorResponse final {
-  bool is_success CXX_DEFAULT_VALUE(false);
-  ::rust::String onion_address;
-  ::rust::String control;
-  ::rust::String error_message;
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
+struct HttpResponse final {
+  double status_code CXX_DEFAULT_VALUE(0);
+  ::rust::String body;
+  ::rust::String error;
 
   using IsRelocatable = ::std::true_type;
 };
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
 
 #ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorParams
 #define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorParams
@@ -505,28 +504,30 @@ struct StartTorParams final {
 };
 #endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorParams
 
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
-struct HttpPostParams final {
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
+struct StartTorResponse final {
+  bool is_success CXX_DEFAULT_VALUE(false);
+  ::rust::String onion_address;
+  ::rust::String control;
+  ::rust::String error_message;
+
+  using IsRelocatable = ::std::true_type;
+};
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
+
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
+struct HttpPutParams final {
   ::rust::String url;
   ::rust::String body;
   ::rust::String headers;
   double timeout_ms CXX_DEFAULT_VALUE(0);
+  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
 
   using IsRelocatable = ::std::true_type;
 };
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
-struct HttpGetParams final {
-  ::rust::String url;
-  ::rust::String headers;
-  double timeout_ms CXX_DEFAULT_VALUE(0);
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
 
 #ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpDeleteParams
 #define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpDeleteParams
@@ -534,10 +535,22 @@ struct HttpDeleteParams final {
   ::rust::String url;
   ::rust::String headers;
   double timeout_ms CXX_DEFAULT_VALUE(0);
+  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
 
   using IsRelocatable = ::std::true_type;
 };
 #endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpDeleteParams
+
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
+struct HiddenServiceResponse final {
+  bool is_success CXX_DEFAULT_VALUE(false);
+  ::rust::String onion_address;
+  ::rust::String control;
+
+  using IsRelocatable = ::std::true_type;
+};
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
 
 #ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceParams
 #define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceParams
@@ -560,39 +573,30 @@ struct TorConfig final {
 };
 #endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$TorConfig
 
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
-struct HttpResponse final {
-  double status_code CXX_DEFAULT_VALUE(0);
-  ::rust::String body;
-  ::rust::String error;
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
+struct HttpGetParams final {
+  ::rust::String url;
+  ::rust::String headers;
+  double timeout_ms CXX_DEFAULT_VALUE(0);
+  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
 
   using IsRelocatable = ::std::true_type;
 };
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
 
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
-struct HttpPutParams final {
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
+struct HttpPostParams final {
   ::rust::String url;
   ::rust::String body;
   ::rust::String headers;
   double timeout_ms CXX_DEFAULT_VALUE(0);
+  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
 
   using IsRelocatable = ::std::true_type;
 };
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
-struct HiddenServiceResponse final {
-  bool is_success CXX_DEFAULT_VALUE(false);
-  ::rust::String onion_address;
-  ::rust::String control;
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
 
 #ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTor
 #define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTor

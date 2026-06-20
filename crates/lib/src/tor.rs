@@ -216,6 +216,7 @@ fn make_tor_http_request(
     headers_json: String,
     body: String,
     timeout_ms: u64,
+    trust_invalid_certs: bool,
 ) -> HttpResponse {
     if INITIALIZED.get().is_none() {
         return HttpResponse {
@@ -253,6 +254,7 @@ fn make_tor_http_request(
         headers,
         body: if body.is_empty() { None } else { Some(body) },
         timeout_ms: Some(timeout_ms),
+        trust_invalid_certs: Some(trust_invalid_certs),
     };
 
     // Get socks proxy address from the running Tor service
@@ -295,30 +297,68 @@ fn make_tor_http_request(
     }
 }
 
-pub fn http_get(url: String, headers_json: String, timeout_ms: f64) -> HttpResponse {
+pub fn http_get(
+    url: String,
+    headers_json: String,
+    timeout_ms: f64,
+    trust_invalid_certs: bool,
+) -> HttpResponse {
     make_tor_http_request(
         url,
         HttpMethod::GET,
         headers_json,
         String::new(), // No body for GET
         timeout_ms as u64,
+        trust_invalid_certs,
     )
 }
 
-pub fn http_post(url: String, body: String, headers_json: String, timeout_ms: f64) -> HttpResponse {
-    make_tor_http_request(url, HttpMethod::POST, headers_json, body, timeout_ms as u64)
+pub fn http_post(
+    url: String,
+    body: String,
+    headers_json: String,
+    timeout_ms: f64,
+    trust_invalid_certs: bool,
+) -> HttpResponse {
+    make_tor_http_request(
+        url,
+        HttpMethod::POST,
+        headers_json,
+        body,
+        timeout_ms as u64,
+        trust_invalid_certs,
+    )
 }
 
-pub fn http_put(url: String, body: String, headers_json: String, timeout_ms: f64) -> HttpResponse {
-    make_tor_http_request(url, HttpMethod::PUT, headers_json, body, timeout_ms as u64)
+pub fn http_put(
+    url: String,
+    body: String,
+    headers_json: String,
+    timeout_ms: f64,
+    trust_invalid_certs: bool,
+) -> HttpResponse {
+    make_tor_http_request(
+        url,
+        HttpMethod::PUT,
+        headers_json,
+        body,
+        timeout_ms as u64,
+        trust_invalid_certs,
+    )
 }
 
-pub fn http_delete(url: String, headers_json: String, timeout_ms: f64) -> HttpResponse {
+pub fn http_delete(
+    url: String,
+    headers_json: String,
+    timeout_ms: f64,
+    trust_invalid_certs: bool,
+) -> HttpResponse {
     make_tor_http_request(
         url,
         HttpMethod::DELETE,
         headers_json,
         String::new(), // Usually no body for DELETE
         timeout_ms as u64,
+        trust_invalid_certs,
     )
 }

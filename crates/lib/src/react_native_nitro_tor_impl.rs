@@ -31,11 +31,17 @@ impl ReactNativeNitroTorSpec for ReactNativeNitroTor {
             params.url,
             params.headers,
             params.timeout_ms,
+            params.trust_invalid_certs,
         ))
     }
 
     fn http_get(&mut self, params: HttpGetParams) -> Promise<HttpResponse> {
-        Ok(tor::http_get(params.url, params.headers, params.timeout_ms))
+        Ok(tor::http_get(
+            params.url,
+            params.headers,
+            params.timeout_ms,
+            params.trust_invalid_certs,
+        ))
     }
 
     fn http_post(&mut self, params: HttpPostParams) -> Promise<HttpResponse> {
@@ -44,6 +50,7 @@ impl ReactNativeNitroTorSpec for ReactNativeNitroTor {
             params.body,
             params.headers,
             params.timeout_ms,
+            params.trust_invalid_certs,
         ))
     }
 
@@ -53,6 +60,7 @@ impl ReactNativeNitroTorSpec for ReactNativeNitroTor {
             params.body,
             params.headers,
             params.timeout_ms,
+            params.trust_invalid_certs,
         ))
     }
 
