@@ -186,6 +186,10 @@
             export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
 
             unset SDKROOT
+            if [ "''${CARGO_TARGET_DIR+x}" = "x" ] && [ -z "$CARGO_TARGET_DIR" ]; then
+              unset CARGO_TARGET_DIR
+            fi
+            export ac_cv_func_pipe2=no
 
             rustup target add aarch64-linux-android x86_64-linux-android i686-linux-android armv7-linux-androideabi
             rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin x86_64-apple-darwin
@@ -193,6 +197,34 @@
             if [ -f "${darwinDerivations.xcode-wrapper pkgs}/bin/env.sh" ]; then
               source "${darwinDerivations.xcode-wrapper pkgs}/bin/env.sh"
             fi
+
+            iphoneos_cc="$(xcrun --sdk iphoneos --find clang)"
+            iphoneos_cxx="$(xcrun --sdk iphoneos --find clang++)"
+            iphoneos_ar="$(xcrun --sdk iphoneos --find ar)"
+            iphoneos_ranlib="$(xcrun --sdk iphoneos --find ranlib)"
+
+            iphonesim_cc="$(xcrun --sdk iphonesimulator --find clang)"
+            iphonesim_cxx="$(xcrun --sdk iphonesimulator --find clang++)"
+            iphonesim_ar="$(xcrun --sdk iphonesimulator --find ar)"
+            iphonesim_ranlib="$(xcrun --sdk iphonesimulator --find ranlib)"
+
+            export CC_aarch64_apple_ios="$iphoneos_cc"
+            export CXX_aarch64_apple_ios="$iphoneos_cxx"
+            export AR_aarch64_apple_ios="$iphoneos_ar"
+            export RANLIB_aarch64_apple_ios="$iphoneos_ranlib"
+            export CARGO_TARGET_AARCH64_APPLE_IOS_LINKER="$iphoneos_cc"
+
+            export CC_aarch64_apple_ios_sim="$iphonesim_cc"
+            export CXX_aarch64_apple_ios_sim="$iphonesim_cxx"
+            export AR_aarch64_apple_ios_sim="$iphonesim_ar"
+            export RANLIB_aarch64_apple_ios_sim="$iphonesim_ranlib"
+            export CARGO_TARGET_AARCH64_APPLE_IOS_SIM_LINKER="$iphonesim_cc"
+
+            export CC_x86_64_apple_ios="$iphonesim_cc"
+            export CXX_x86_64_apple_ios="$iphonesim_cxx"
+            export AR_x86_64_apple_ios="$iphonesim_ar"
+            export RANLIB_x86_64_apple_ios="$iphonesim_ranlib"
+            export CARGO_TARGET_X86_64_APPLE_IOS_LINKER="$iphonesim_cc"
 
             export LD=/usr/bin/clang
             export LD_FOR_TARGET=/usr/bin/clang
