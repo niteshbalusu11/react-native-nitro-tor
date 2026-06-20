@@ -9,13 +9,14 @@ use bridging::*;
 
 #[cxx::bridge(namespace = "craby::reactnativenitrotor::bridging")]
 pub mod bridging {
-    struct StartTorResponse {
-        is_success: bool,
-        onion_address: String,
-        control: String,
-        error_message: String,
+    #[derive(Clone)]
+    struct HttpResponse {
+        status_code: f64,
+        body: String,
+        error: String,
     }
 
+    #[derive(Clone)]
     struct StartTorParams {
         data_dir: String,
         socks_port: f64,
@@ -23,56 +24,67 @@ pub mod bridging {
         timeout_ms: f64,
     }
 
-    struct HttpPostParams {
-        url: String,
-        body: String,
-        headers: String,
-        timeout_ms: f64,
+    #[derive(Clone)]
+    struct StartTorResponse {
+        is_success: bool,
+        onion_address: String,
+        control: String,
+        error_message: String,
     }
 
-    struct HttpGetParams {
-        url: String,
-        headers: String,
-        timeout_ms: f64,
-    }
-
-    struct HttpDeleteParams {
-        url: String,
-        headers: String,
-        timeout_ms: f64,
-    }
-
-    struct HiddenServiceParams {
-        port: f64,
-        target_port: f64,
-    }
-
-    struct TorConfig {
-        socks_port: f64,
-        data_dir: String,
-        timeout_ms: f64,
-    }
-
-    struct HttpResponse {
-        status_code: f64,
-        body: String,
-        error: String,
-    }
-
+    #[derive(Clone)]
     struct HttpPutParams {
         url: String,
         body: String,
         headers: String,
         timeout_ms: f64,
+        trust_invalid_certs: bool,
     }
 
+    #[derive(Clone)]
+    struct HttpDeleteParams {
+        url: String,
+        headers: String,
+        timeout_ms: f64,
+        trust_invalid_certs: bool,
+    }
+
+    #[derive(Clone)]
     struct HiddenServiceResponse {
         is_success: bool,
         onion_address: String,
         control: String,
     }
 
+    #[derive(Clone)]
+    struct HiddenServiceParams {
+        port: f64,
+        target_port: f64,
+    }
 
+    #[derive(Clone)]
+    struct TorConfig {
+        socks_port: f64,
+        data_dir: String,
+        timeout_ms: f64,
+    }
+
+    #[derive(Clone)]
+    struct HttpGetParams {
+        url: String,
+        headers: String,
+        timeout_ms: f64,
+        trust_invalid_certs: bool,
+    }
+
+    #[derive(Clone)]
+    struct HttpPostParams {
+        url: String,
+        body: String,
+        headers: String,
+        timeout_ms: f64,
+        trust_invalid_certs: bool,
+    }
 
     extern "Rust" {
         type ReactNativeNitroTor;
@@ -110,7 +122,6 @@ pub mod bridging {
         #[cxx_name = "startTorIfNotRunning"]
         fn react_native_nitro_tor_start_tor_if_not_running(it_: &mut ReactNativeNitroTor, params: StartTorParams) -> Result<StartTorResponse>;
     }
-
 }
 
 fn create_react_native_nitro_tor(id: usize, data_path: &str) -> Box<ReactNativeNitroTor> {
@@ -187,3 +198,5 @@ fn react_native_nitro_tor_start_tor_if_not_running(it_: &mut ReactNativeNitroTor
         ret
     }).and_then(|r| r)
 }
+
+

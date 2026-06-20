@@ -103,11 +103,11 @@ jsi::Value CxxReactNativeNitroTorModule::deleteHiddenService(jsi::Runtime &rt,
     }
 
     auto arg0$raw = args[0].asString(rt).utf8(rt);
-    auto arg0 = rust::Str(arg0$raw.data(), arg0$raw.size());
     react::AsyncPromise<bool> promise(rt, callInvoker);
 
-    thisModule.threadPool_->enqueue([it_, promise, arg0]() mutable {
+    thisModule.threadPool_->enqueue([it_, promise, arg0$raw]() mutable {
       try {
+        auto arg0 = rust::Str(arg0$raw.data(), arg0$raw.size());
         auto ret = craby::reactnativenitrotor::bridging::deleteHiddenService(*it_, arg0);
         promise.resolve(ret);
       } catch (const jsi::JSError &err) {
