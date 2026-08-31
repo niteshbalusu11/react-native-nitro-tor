@@ -35,15 +35,16 @@
         system:
         android-nixpkgs.sdk.${system} (
           sdkPkgs: with sdkPkgs; [
-            cmdline-tools-latest
+            cmdline-tools-22-0
             build-tools-35-0-0
             build-tools-36-0-0
+            build-tools-37-0-0
             platform-tools
-            platforms-android-35
             platforms-android-36
+            platforms-android-37-0
+            ndk-28-2-13676358
             ndk-27-1-12297006
             ndk-27-0-12077973
-            ndk-26-1-10909125
             cmake-3-22-1
           ]
         );
@@ -159,31 +160,31 @@
             export LANG=en_US.UTF-8
             export JAVA_HOME="${pkgs.jdk17.home}"
             export ANDROID_HOME="${androidSdk}/share/android-sdk"
-            export ANDROID_NDK_HOME="${androidSdk}/share/android-sdk/ndk/26.1.10909125"
+            export ANDROID_NDK_HOME="${androidSdk}/share/android-sdk/ndk/27.1.12297006"
 
-            export PATH="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin:$PATH"
+            export PATH="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin:$PATH"
 
-            export AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-            export RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
-            export AS="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-as"
-            export NM="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-nm"
-            export STRIP="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip"
+            export AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
+            export RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
+            export AS="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-as"
+            export NM="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-nm"
+            export STRIP="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip"
 
-            export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android30-clang"
-            export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android30-clang"
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
 
-            export CARGO_TARGET_I686_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_I686_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/i686-linux-android30-clang"
-            export CARGO_TARGET_I686_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_I686_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_I686_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/i686-linux-android30-clang"
+            export CARGO_TARGET_I686_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
 
-            export CARGO_TARGET_X86_64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android30-clang"
-            export CARGO_TARGET_X86_64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_X86_64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android30-clang"
+            export CARGO_TARGET_X86_64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
 
-            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi30-clang"
-            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi30-clang"
+            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
 
             unset SDKROOT
 
@@ -207,31 +208,31 @@
             export LANG=en_US.UTF-8
             export JAVA_HOME="${pkgs.jdk17.home}"
             export ANDROID_HOME="${androidSdk}/share/android-sdk"
-            export ANDROID_NDK_HOME="${androidSdk}/share/android-sdk/ndk/26.1.10909125"
+            export ANDROID_NDK_HOME="${androidSdk}/share/android-sdk/ndk/27.1.12297006"
 
-            export PATH="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+            export PATH="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
 
-            export AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-            export RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
-            export AS="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-as"
-            export NM="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
-            export STRIP="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+            export AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            export RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            export AS="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-as"
+            export NM="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+            export STRIP="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
 
-            export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang"
-            export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang"
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
 
-            export CARGO_TARGET_I686_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_I686_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android30-clang"
-            export CARGO_TARGET_I686_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_I686_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_I686_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android30-clang"
+            export CARGO_TARGET_I686_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
 
-            export CARGO_TARGET_X86_64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android30-clang"
-            export CARGO_TARGET_X86_64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_X86_64_LINUX_ANDROID_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android30-clang"
+            export CARGO_TARGET_X86_64_LINUX_ANDROID_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
 
-            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_AR="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi30-clang"
-            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RANLIB="${androidSdk}/share/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_AR="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi30-clang"
+            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RANLIB="${androidSdk}/share/android-sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
 
             rustup target add aarch64-linux-android x86_64-linux-android i686-linux-android armv7-linux-androideabi
           '';

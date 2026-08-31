@@ -65,17 +65,17 @@
   },
   "homepage": "https://github.com/niteshbalusu11/react-native-nitro-tor#readme",
   "dependencies": {
-    "craby-modules": "^0.1.0-rc.5"
+    "craby-modules": "^0.1.0-rc.8"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.7",
     "@react-native-community/cli-types": "^20.0.2",
-    "@types/react": "^19.0.0",
-    "crabygen": "^0.1.0-rc.5",
-    "react": "19.2.0",
-    "react-native": "0.83.4",
+    "@types/react": "^19.2.3",
+    "crabygen": "^0.1.0-rc.8",
+    "react": "19.2.3",
+    "react-native": "0.87.1",
     "tsdown": "^0.15.10",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "react": "*",
