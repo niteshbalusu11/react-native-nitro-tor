@@ -15,6 +15,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Ensure owned Rust crates stay local
+        run: |
+          if grep -R --include='Cargo.toml' -E 'github.com/niteshbalusu11/(tor-rust-sdk|libtor|libtor-sys)' Cargo.toml crates \
+            || grep -E 'git\+https://github.com/niteshbalusu11/(tor-rust-sdk|libtor|libtor-sys)' Cargo.lock; then
+            echo "Owned Rust crates must resolve through workspace paths."
+            exit 1
+          fi
       - name: Check if commit is tagged for release (v*)
         id: check_tag
         run: |

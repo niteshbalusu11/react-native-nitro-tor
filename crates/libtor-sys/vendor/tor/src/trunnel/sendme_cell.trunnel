@@ -1,0 +1,19 @@
+/* This file contains the SENDME cell definition. */
+
+/* SENDME cell declaration. */
+struct sendme_cell {
+  /* Version field. */
+  u8 version IN [0x00, 0x01];
+
+  /* Length of data contained in this cell. */
+  u16 data_len IN [16, 20];
+
+  /* The data content depends on the version. */
+  union data[version] with length data_len {
+    0x00: ignore;
+    /* I'd like to use data_len here, but trunnel doesn't
+     * allow that.  Instead have v1_digest run to the end of the cell.
+     */
+    0x01: u8 v1_digest[];
+  };
+}

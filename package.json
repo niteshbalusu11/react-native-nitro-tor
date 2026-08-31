@@ -24,6 +24,8 @@
   },
   "files": [
     "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "licenses",
     "src",
     "dist",
     "android",

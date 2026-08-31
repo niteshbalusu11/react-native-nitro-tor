@@ -1,0 +1,24 @@
+[package]
+name = "libtor-derive"
+version = "0.1.2"
+publish = false
+authors = ["Alekos Filini <alekos.filini@gmail.com>"]
+license = "MIT"
+homepage = "https://github.com/MagicalBitcoin/libtor"
+repository = "https://github.com/MagicalBitcoin/libtor"
+documentation = "https://docs.rs/libtor/"
+description = "Internal #[derive] macros for libtor"
+keywords = ["tor", "daemon"]
+readme = "README.md"
+edition = "2021"
+
+[dependencies]
+proc-macro2 = "1.0"
+syn = "2.0"
+quote = "1.0"
+
+[lib]
+proc-macro = true
+
+[features]
+debug = ["syn/extra-traits"]

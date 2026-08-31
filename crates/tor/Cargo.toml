@@ -1,0 +1,33 @@
+[package]
+name = "tor"
+version = "0.2.0"
+publish = false
+license = "MIT"
+authors = ["Nitesh Balusu <niteshbalusu@icloud.com>"]
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version= "1.4", features = ["net", "rt-multi-thread", "time"] }
+logger.workspace = true
+libtor = { workspace = true, features=["vendored-openssl"] }
+torut = { version = "0.1.9", features=["control","v3","vendored_openssl"] }
+anyhow = "1.0.95"
+serde = { version="1.0.217", features = ["derive"], default-features = false }
+serde_json = "1.0.138"
+futures = { version="0.3.31", default-features = false }
+socks = { version = "0.3.4"}
+base64 = "0.22.1"
+thiserror = "1.0.24"
+num_cpus = "1.0"
+tokio-compat-02 = "0.2"
+httparse = "1.10.0"
+log = "0.4"
+once_cell = "1.20.3"
+url = "2.5.4"
+reqwest = { version = "0.11", features = ["json", "socks"] }
+
+[dev-dependencies]
+serial_test = "=3.2.0"
+utils.workspace = true

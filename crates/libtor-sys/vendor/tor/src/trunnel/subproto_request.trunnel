@@ -1,0 +1,9 @@
+
+struct trn_subproto_request {
+  u8 protocol_id;
+  u8 proto_cap_number;
+}
+
+struct trn_subproto_request_ext {
+  struct trn_subproto_request reqs[];
+}
