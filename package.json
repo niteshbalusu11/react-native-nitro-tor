@@ -1,6 +1,6 @@
 {
   "name": "react-native-nitro-tor",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Tor Daemon and Onion Routing Client for React-Native",
   "workspaces": [
     "example"
@@ -46,7 +46,7 @@
     "example": "yarn workspace ReactNativeNitroTorExample",
     "typecheck": "tsc --noEmit",
     "lint": "biome check",
-    "build": "craby build && tsdown",
+    "build": "sh ./scripts/craby-build-env.sh craby build && tsdown",
     "clean": "craby clean"
   },
   "keywords": [

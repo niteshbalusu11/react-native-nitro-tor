@@ -7,7 +7,7 @@ on:
 
 jobs:
   check_if_release_commit:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       is_release: ${{ steps.check_tag.outputs.is_release }}
     steps:
@@ -28,7 +28,7 @@ jobs:
         shell: bash
 
   android_build:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: check_if_release_commit
     if: needs.check_if_release_commit.outputs.is_release == 'false'
     steps:
@@ -56,7 +56,7 @@ jobs:
         run: yarn example build:android
 
   ios_build:
-    runs-on: macos-latest
+    runs-on: blacksmith-6vcpu-macos-15
     needs: check_if_release_commit
     if: needs.check_if_release_commit.outputs.is_release == 'false'
     steps:

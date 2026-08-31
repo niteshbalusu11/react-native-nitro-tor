@@ -1099,7 +1099,7 @@ dependencies = [
 [[package]]
 name = "logger"
 version = "0.1.0"
-source = "git+https://github.com/niteshbalusu11/tor-rust-sdk?branch=socks5h-support#4f030298a5e83aa08842813d8dbd03bdc54aeceb"
+source = "git+https://github.com/niteshbalusu11/tor-rust-sdk?branch=master#6ee9f071b769171de295e6dc817511533d345df6"
 dependencies = [
  "android_logger",
  "env_logger",
@@ -2038,7 +2038,7 @@ checksum = "df8b2b54733674ad286d16267dcfc7a71ed5c776e4ac7aa3c3e2561f7c637bf2"
 [[package]]
 name = "tor"
 version = "0.2.0"
-source = "git+https://github.com/niteshbalusu11/tor-rust-sdk?branch=socks5h-support#4f030298a5e83aa08842813d8dbd03bdc54aeceb"
+source = "git+https://github.com/niteshbalusu11/tor-rust-sdk?branch=master#6ee9f071b769171de295e6dc817511533d345df6"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
