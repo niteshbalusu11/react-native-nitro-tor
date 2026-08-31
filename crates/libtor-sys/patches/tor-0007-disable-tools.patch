@@ -1,0 +1,9 @@
+--- ./src/include.am
++++ ./src/include.am
+@@ -86,6 +86,5 @@ include src/core/include.am
+ include src/app/include.am
+ 
+ include src/test/include.am
+-include src/tools/include.am
+ include src/config/include.am
+ include src/test/fuzz/include.am

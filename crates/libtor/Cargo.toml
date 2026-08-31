@@ -1,0 +1,28 @@
+[package]
+name = "libtor"
+version = "49.11.0+0.4.9.11"
+publish = false
+authors = ["Alekos Filini <alekos.filini@gmail.com>"]
+license = "MIT"
+homepage = "https://github.com/MagicalBitcoin/libtor"
+repository = "https://github.com/MagicalBitcoin/libtor"
+documentation = "https://docs.rs/libtor/"
+description = "Bundle and run Tor inside your own project"
+keywords = ["tor", "daemon"]
+readme = "README.md"
+edition = "2021"
+
+[dependencies]
+libtor-sys.workspace = true
+libtor-derive.workspace = true
+log = "0.4"
+serde = { version = "1.0.217", features = ["derive"], optional = true }
+rand = "0.9"
+sha1 = "0.10.6"
+
+[features]
+vendored-openssl = ["libtor-sys/vendored-openssl"]
+vendored-lzma = ["libtor-sys/vendored-lzma"]
+vendored-zstd = ["libtor-sys/vendored-zstd"]
+with-lzma = ["libtor-sys/with-lzma"]
+with-zstd = ["libtor-sys/with-zstd"]

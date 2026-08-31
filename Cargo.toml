@@ -6,12 +6,17 @@ resolver = "2"
 version = "0.0.0"
 edition = "2021"
 
+[workspace.dependencies]
+libtor = { path = "crates/libtor" }
+libtor-derive = { path = "crates/libtor-derive" }
+libtor-sys = { path = "crates/libtor-sys" }
+logger = { path = "crates/logger" }
+tor = { path = "crates/tor" }
+utils = { path = "crates/utils" }
+
 [profile.release]
 lto = true
 codegen-units = 1
 opt-level = "z"
 strip = true
 panic = "unwind"
-
-[patch."https://github.com/niteshbalusu11/libtor-sys"]
-libtor-sys = { path = "vendor/libtor-sys" }
