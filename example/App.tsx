@@ -128,6 +128,7 @@ export default function TorApp() {
       const result = await RnTor.httpGet({
         headers: '',
         timeout_ms: 20000,
+        trust_invalid_certs: false,
         url: GET_URL,
       });
       console.log('httpGet result', result);
@@ -151,6 +152,7 @@ export default function TorApp() {
       const result = await RnTor.httpGet({
         headers: '',
         timeout_ms: 30000,
+        trust_invalid_certs: false,
         url: ONION_GET_URL,
       });
       console.log('onionHttpGet result', result);
@@ -176,6 +178,7 @@ export default function TorApp() {
         body: '{"test":"data"}',
         headers: '{"Content-Type":"application/json"}',
         timeout_ms: 20000,
+        trust_invalid_certs: false,
       });
       console.log('http post result', result);
       setPostResult({
@@ -200,6 +203,7 @@ export default function TorApp() {
         body: '{"updated":"value"}',
         headers: '{"Content-Type":"application/json"}',
         timeout_ms: 20000,
+        trust_invalid_certs: false,
       });
       console.log('http put result', result);
       setPutResult({
@@ -223,6 +227,7 @@ export default function TorApp() {
         url: DELETE_URL,
         headers: '{"Content-Type":"application/json"}',
         timeout_ms: 20000,
+        trust_invalid_certs: false,
       });
       console.log('http delete result', result);
       setDeleteResult({
