@@ -1040,7 +1040,6 @@ dependencies = [
 [[package]]
 name = "libtor-sys"
 version = "47.16.0+0.4.7.x"
-source = "git+https://github.com/niteshbalusu11/libtor-sys?branch=master#9d527c4ab5f4d279a13ba12e786349afcfd0381f"
 dependencies = [
  "autotools",
  "cc",

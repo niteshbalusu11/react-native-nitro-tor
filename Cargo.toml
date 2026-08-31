@@ -12,3 +12,6 @@ codegen-units = 1
 opt-level = "z"
 strip = true
 panic = "unwind"
+
+[patch."https://github.com/niteshbalusu11/libtor-sys"]
+libtor-sys = { path = "vendor/libtor-sys" }

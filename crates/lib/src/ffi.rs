@@ -198,5 +198,3 @@ fn react_native_nitro_tor_start_tor_if_not_running(it_: &mut ReactNativeNitroTor
         ret
     }).and_then(|r| r)
 }
-
-
