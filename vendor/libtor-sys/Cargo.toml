@@ -1,0 +1,29 @@
+[package]
+name = "libtor-sys"
+version = "47.16.0+0.4.7.x"
+edition = "2021"
+license = "MIT"
+build = "build.rs"
+links = "tor"
+
+[dependencies]
+openssl-sys = "0.9"
+libz-sys = { version = "1.1.21", features = ["static"] }
+lzma-sys = { version = "0.1.20", optional = true }
+zstd-sys = { version = "2.0.13", optional = true }
+
+[build-dependencies]
+libtor-src = { git = "https://github.com/niteshbalusu11/libtor-sys", branch = "master" }
+cc = "1.0"
+autotools = "^0.2.2"
+
+[lib]
+name = "tor_sys"
+path = "src/lib.rs"
+
+[features]
+vendored-openssl = ["openssl-sys/vendored"]
+vendored-lzma = ["lzma-sys", "lzma-sys/static", "with-lzma"]
+vendored-zstd = ["zstd-sys", "with-zstd"]
+with-lzma = []
+with-zstd = []
