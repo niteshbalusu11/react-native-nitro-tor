@@ -55,7 +55,7 @@ struct Bridging<rust::Str> {
   }
 
   static jsi::Value toJs(jsi::Runtime& rt, const rust::Str& value) {
-    return react::bridging::toJs(rt, std::string(value.data(), value.size()));
+    return jsi::String::createFromUtf8(rt, std::string(value.data(), value.size()));
   }
 };
 
@@ -67,7 +67,7 @@ struct Bridging<rust::String> {
   }
 
   static jsi::Value toJs(jsi::Runtime& rt, const rust::String& value) {
-    return react::bridging::toJs(rt, std::string(value.data(), value.size()));
+    return jsi::String::createFromUtf8(rt, std::string(value.data(), value.size()));
   }
 };
 
@@ -120,385 +120,150 @@ struct Bridging<rust::Vec<T>> {
 };
 
 template <>
-struct Bridging<craby::reactnativenitrotor::bridging::HiddenServiceParams> {
-  static craby::reactnativenitrotor::bridging::HiddenServiceParams fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
+struct Bridging<craby::reactnativenitrotor::bridging::NativeHiddenService> {
+  static craby::reactnativenitrotor::bridging::NativeHiddenService fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
     auto obj = value.asObject(rt);
-    auto obj$port = obj.getProperty(rt, "port");
-    auto obj$targetPort = obj.getProperty(rt, "target_port");
-
-    auto _obj$port = react::bridging::fromJs<double>(rt, obj$port, callInvoker);
-    auto _obj$targetPort = react::bridging::fromJs<double>(rt, obj$targetPort, callInvoker);
-
-    craby::reactnativenitrotor::bridging::HiddenServiceParams ret = {
-      _obj$port,
-      _obj$targetPort
-    };
-
-    return ret;
-  }
-
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::HiddenServiceParams value) {
-    jsi::Object obj = jsi::Object(rt);
-    auto _obj$port = react::bridging::toJs(rt, value.port);
-    auto _obj$targetPort = react::bridging::toJs(rt, value.target_port);
-
-    obj.setProperty(rt, "port", _obj$port);
-    obj.setProperty(rt, "target_port", _obj$targetPort);
-
-    return jsi::Value(rt, obj);
-  }
-};
-
-template <>
-struct Bridging<craby::reactnativenitrotor::bridging::HiddenServiceResponse> {
-  static craby::reactnativenitrotor::bridging::HiddenServiceResponse fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
-    auto obj = value.asObject(rt);
-    auto obj$isSuccess = obj.getProperty(rt, "is_success");
     auto obj$onionAddress = obj.getProperty(rt, "onion_address");
-    auto obj$control = obj.getProperty(rt, "control");
+    auto obj$privateKey = obj.getProperty(rt, "private_key");
 
-    auto _obj$isSuccess = react::bridging::fromJs<bool>(rt, obj$isSuccess, callInvoker);
     auto _obj$onionAddress = react::bridging::fromJs<rust::String>(rt, obj$onionAddress, callInvoker);
-    auto _obj$control = react::bridging::fromJs<rust::String>(rt, obj$control, callInvoker);
+    auto _obj$privateKey = react::bridging::fromJs<rust::Vec<uint8_t>>(rt, obj$privateKey, callInvoker);
 
-    craby::reactnativenitrotor::bridging::HiddenServiceResponse ret = {
-      _obj$isSuccess,
+    craby::reactnativenitrotor::bridging::NativeHiddenService ret = {
       _obj$onionAddress,
-      _obj$control
+      _obj$privateKey
     };
 
     return ret;
   }
 
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::HiddenServiceResponse value) {
+  static jsi::Value toJs(jsi::Runtime &rt, const craby::reactnativenitrotor::bridging::NativeHiddenService& value) {
     jsi::Object obj = jsi::Object(rt);
-    auto _obj$isSuccess = react::bridging::toJs(rt, value.is_success);
     auto _obj$onionAddress = react::bridging::toJs(rt, value.onion_address);
-    auto _obj$control = react::bridging::toJs(rt, value.control);
+    auto _obj$privateKey = react::bridging::toJs(rt, value.private_key);
 
-    obj.setProperty(rt, "is_success", _obj$isSuccess);
     obj.setProperty(rt, "onion_address", _obj$onionAddress);
-    obj.setProperty(rt, "control", _obj$control);
+    obj.setProperty(rt, "private_key", _obj$privateKey);
 
     return jsi::Value(rt, obj);
   }
 };
 
 template <>
-struct Bridging<craby::reactnativenitrotor::bridging::HttpDeleteParams> {
-  static craby::reactnativenitrotor::bridging::HttpDeleteParams fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
+struct Bridging<craby::reactnativenitrotor::bridging::NativeHiddenServiceOptions> {
+  static craby::reactnativenitrotor::bridging::NativeHiddenServiceOptions fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
     auto obj = value.asObject(rt);
-    auto obj$url = obj.getProperty(rt, "url");
-    auto obj$headers = obj.getProperty(rt, "headers");
-    auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
-    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
-
-    auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
-    auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
-    auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
-    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
-
-    craby::reactnativenitrotor::bridging::HttpDeleteParams ret = {
-      _obj$url,
-      _obj$headers,
-      _obj$timeoutMs,
-      _obj$trustInvalidCerts
-    };
-
-    return ret;
-  }
-
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::HttpDeleteParams value) {
-    jsi::Object obj = jsi::Object(rt);
-    auto _obj$url = react::bridging::toJs(rt, value.url);
-    auto _obj$headers = react::bridging::toJs(rt, value.headers);
-    auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
-    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
-
-    obj.setProperty(rt, "url", _obj$url);
-    obj.setProperty(rt, "headers", _obj$headers);
-    obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
-    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
-
-    return jsi::Value(rt, obj);
-  }
-};
-
-template <>
-struct Bridging<craby::reactnativenitrotor::bridging::HttpGetParams> {
-  static craby::reactnativenitrotor::bridging::HttpGetParams fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
-    auto obj = value.asObject(rt);
-    auto obj$url = obj.getProperty(rt, "url");
-    auto obj$headers = obj.getProperty(rt, "headers");
-    auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
-    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
-
-    auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
-    auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
-    auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
-    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
-
-    craby::reactnativenitrotor::bridging::HttpGetParams ret = {
-      _obj$url,
-      _obj$headers,
-      _obj$timeoutMs,
-      _obj$trustInvalidCerts
-    };
-
-    return ret;
-  }
-
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::HttpGetParams value) {
-    jsi::Object obj = jsi::Object(rt);
-    auto _obj$url = react::bridging::toJs(rt, value.url);
-    auto _obj$headers = react::bridging::toJs(rt, value.headers);
-    auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
-    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
-
-    obj.setProperty(rt, "url", _obj$url);
-    obj.setProperty(rt, "headers", _obj$headers);
-    obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
-    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
-
-    return jsi::Value(rt, obj);
-  }
-};
-
-template <>
-struct Bridging<craby::reactnativenitrotor::bridging::HttpPostParams> {
-  static craby::reactnativenitrotor::bridging::HttpPostParams fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
-    auto obj = value.asObject(rt);
-    auto obj$url = obj.getProperty(rt, "url");
-    auto obj$body = obj.getProperty(rt, "body");
-    auto obj$headers = obj.getProperty(rt, "headers");
-    auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
-    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
-
-    auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
-    auto _obj$body = react::bridging::fromJs<rust::String>(rt, obj$body, callInvoker);
-    auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
-    auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
-    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
-
-    craby::reactnativenitrotor::bridging::HttpPostParams ret = {
-      _obj$url,
-      _obj$body,
-      _obj$headers,
-      _obj$timeoutMs,
-      _obj$trustInvalidCerts
-    };
-
-    return ret;
-  }
-
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::HttpPostParams value) {
-    jsi::Object obj = jsi::Object(rt);
-    auto _obj$url = react::bridging::toJs(rt, value.url);
-    auto _obj$body = react::bridging::toJs(rt, value.body);
-    auto _obj$headers = react::bridging::toJs(rt, value.headers);
-    auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
-    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
-
-    obj.setProperty(rt, "url", _obj$url);
-    obj.setProperty(rt, "body", _obj$body);
-    obj.setProperty(rt, "headers", _obj$headers);
-    obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
-    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
-
-    return jsi::Value(rt, obj);
-  }
-};
-
-template <>
-struct Bridging<craby::reactnativenitrotor::bridging::HttpPutParams> {
-  static craby::reactnativenitrotor::bridging::HttpPutParams fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
-    auto obj = value.asObject(rt);
-    auto obj$url = obj.getProperty(rt, "url");
-    auto obj$body = obj.getProperty(rt, "body");
-    auto obj$headers = obj.getProperty(rt, "headers");
-    auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
-    auto obj$trustInvalidCerts = obj.getProperty(rt, "trust_invalid_certs");
-
-    auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
-    auto _obj$body = react::bridging::fromJs<rust::String>(rt, obj$body, callInvoker);
-    auto _obj$headers = react::bridging::fromJs<rust::String>(rt, obj$headers, callInvoker);
-    auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
-    auto _obj$trustInvalidCerts = react::bridging::fromJs<bool>(rt, obj$trustInvalidCerts, callInvoker);
-
-    craby::reactnativenitrotor::bridging::HttpPutParams ret = {
-      _obj$url,
-      _obj$body,
-      _obj$headers,
-      _obj$timeoutMs,
-      _obj$trustInvalidCerts
-    };
-
-    return ret;
-  }
-
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::HttpPutParams value) {
-    jsi::Object obj = jsi::Object(rt);
-    auto _obj$url = react::bridging::toJs(rt, value.url);
-    auto _obj$body = react::bridging::toJs(rt, value.body);
-    auto _obj$headers = react::bridging::toJs(rt, value.headers);
-    auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
-    auto _obj$trustInvalidCerts = react::bridging::toJs(rt, value.trust_invalid_certs);
-
-    obj.setProperty(rt, "url", _obj$url);
-    obj.setProperty(rt, "body", _obj$body);
-    obj.setProperty(rt, "headers", _obj$headers);
-    obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
-    obj.setProperty(rt, "trust_invalid_certs", _obj$trustInvalidCerts);
-
-    return jsi::Value(rt, obj);
-  }
-};
-
-template <>
-struct Bridging<craby::reactnativenitrotor::bridging::HttpResponse> {
-  static craby::reactnativenitrotor::bridging::HttpResponse fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
-    auto obj = value.asObject(rt);
-    auto obj$statusCode = obj.getProperty(rt, "status_code");
-    auto obj$body = obj.getProperty(rt, "body");
-    auto obj$error = obj.getProperty(rt, "error");
-
-    auto _obj$statusCode = react::bridging::fromJs<double>(rt, obj$statusCode, callInvoker);
-    auto _obj$body = react::bridging::fromJs<rust::String>(rt, obj$body, callInvoker);
-    auto _obj$error = react::bridging::fromJs<rust::String>(rt, obj$error, callInvoker);
-
-    craby::reactnativenitrotor::bridging::HttpResponse ret = {
-      _obj$statusCode,
-      _obj$body,
-      _obj$error
-    };
-
-    return ret;
-  }
-
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::HttpResponse value) {
-    jsi::Object obj = jsi::Object(rt);
-    auto _obj$statusCode = react::bridging::toJs(rt, value.status_code);
-    auto _obj$body = react::bridging::toJs(rt, value.body);
-    auto _obj$error = react::bridging::toJs(rt, value.error);
-
-    obj.setProperty(rt, "status_code", _obj$statusCode);
-    obj.setProperty(rt, "body", _obj$body);
-    obj.setProperty(rt, "error", _obj$error);
-
-    return jsi::Value(rt, obj);
-  }
-};
-
-template <>
-struct Bridging<craby::reactnativenitrotor::bridging::StartTorParams> {
-  static craby::reactnativenitrotor::bridging::StartTorParams fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
-    auto obj = value.asObject(rt);
-    auto obj$dataDir = obj.getProperty(rt, "data_dir");
-    auto obj$socksPort = obj.getProperty(rt, "socks_port");
+    auto obj$virtualPort = obj.getProperty(rt, "virtual_port");
     auto obj$targetPort = obj.getProperty(rt, "target_port");
-    auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
+    auto obj$privateKey = obj.getProperty(rt, "private_key");
 
-    auto _obj$dataDir = react::bridging::fromJs<rust::String>(rt, obj$dataDir, callInvoker);
-    auto _obj$socksPort = react::bridging::fromJs<double>(rt, obj$socksPort, callInvoker);
+    auto _obj$virtualPort = react::bridging::fromJs<double>(rt, obj$virtualPort, callInvoker);
     auto _obj$targetPort = react::bridging::fromJs<double>(rt, obj$targetPort, callInvoker);
-    auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
+    auto _obj$privateKey = react::bridging::fromJs<rust::Vec<uint8_t>>(rt, obj$privateKey, callInvoker);
 
-    craby::reactnativenitrotor::bridging::StartTorParams ret = {
-      _obj$dataDir,
-      _obj$socksPort,
+    craby::reactnativenitrotor::bridging::NativeHiddenServiceOptions ret = {
+      _obj$virtualPort,
       _obj$targetPort,
-      _obj$timeoutMs
+      _obj$privateKey
     };
 
     return ret;
   }
 
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::StartTorParams value) {
+  static jsi::Value toJs(jsi::Runtime &rt, const craby::reactnativenitrotor::bridging::NativeHiddenServiceOptions& value) {
     jsi::Object obj = jsi::Object(rt);
-    auto _obj$dataDir = react::bridging::toJs(rt, value.data_dir);
-    auto _obj$socksPort = react::bridging::toJs(rt, value.socks_port);
+    auto _obj$virtualPort = react::bridging::toJs(rt, value.virtual_port);
     auto _obj$targetPort = react::bridging::toJs(rt, value.target_port);
-    auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
+    auto _obj$privateKey = react::bridging::toJs(rt, value.private_key);
 
-    obj.setProperty(rt, "data_dir", _obj$dataDir);
-    obj.setProperty(rt, "socks_port", _obj$socksPort);
+    obj.setProperty(rt, "virtual_port", _obj$virtualPort);
     obj.setProperty(rt, "target_port", _obj$targetPort);
-    obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
+    obj.setProperty(rt, "private_key", _obj$privateKey);
 
     return jsi::Value(rt, obj);
   }
 };
 
 template <>
-struct Bridging<craby::reactnativenitrotor::bridging::StartTorResponse> {
-  static craby::reactnativenitrotor::bridging::StartTorResponse fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
+struct Bridging<craby::reactnativenitrotor::bridging::NativeHttpRequest> {
+  static craby::reactnativenitrotor::bridging::NativeHttpRequest fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
     auto obj = value.asObject(rt);
-    auto obj$isSuccess = obj.getProperty(rt, "is_success");
-    auto obj$onionAddress = obj.getProperty(rt, "onion_address");
-    auto obj$control = obj.getProperty(rt, "control");
-    auto obj$errorMessage = obj.getProperty(rt, "error_message");
-
-    auto _obj$isSuccess = react::bridging::fromJs<bool>(rt, obj$isSuccess, callInvoker);
-    auto _obj$onionAddress = react::bridging::fromJs<rust::String>(rt, obj$onionAddress, callInvoker);
-    auto _obj$control = react::bridging::fromJs<rust::String>(rt, obj$control, callInvoker);
-    auto _obj$errorMessage = react::bridging::fromJs<rust::String>(rt, obj$errorMessage, callInvoker);
-
-    craby::reactnativenitrotor::bridging::StartTorResponse ret = {
-      _obj$isSuccess,
-      _obj$onionAddress,
-      _obj$control,
-      _obj$errorMessage
-    };
-
-    return ret;
-  }
-
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::StartTorResponse value) {
-    jsi::Object obj = jsi::Object(rt);
-    auto _obj$isSuccess = react::bridging::toJs(rt, value.is_success);
-    auto _obj$onionAddress = react::bridging::toJs(rt, value.onion_address);
-    auto _obj$control = react::bridging::toJs(rt, value.control);
-    auto _obj$errorMessage = react::bridging::toJs(rt, value.error_message);
-
-    obj.setProperty(rt, "is_success", _obj$isSuccess);
-    obj.setProperty(rt, "onion_address", _obj$onionAddress);
-    obj.setProperty(rt, "control", _obj$control);
-    obj.setProperty(rt, "error_message", _obj$errorMessage);
-
-    return jsi::Value(rt, obj);
-  }
-};
-
-template <>
-struct Bridging<craby::reactnativenitrotor::bridging::TorConfig> {
-  static craby::reactnativenitrotor::bridging::TorConfig fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
-    auto obj = value.asObject(rt);
-    auto obj$socksPort = obj.getProperty(rt, "socks_port");
-    auto obj$dataDir = obj.getProperty(rt, "data_dir");
+    auto obj$url = obj.getProperty(rt, "url");
+    auto obj$method = obj.getProperty(rt, "method");
+    auto obj$headersJson = obj.getProperty(rt, "headers_json");
+    auto obj$body = obj.getProperty(rt, "body");
     auto obj$timeoutMs = obj.getProperty(rt, "timeout_ms");
+    auto obj$allowInvalidCertificates = obj.getProperty(rt, "allow_invalid_certificates");
 
-    auto _obj$socksPort = react::bridging::fromJs<double>(rt, obj$socksPort, callInvoker);
-    auto _obj$dataDir = react::bridging::fromJs<rust::String>(rt, obj$dataDir, callInvoker);
+    auto _obj$url = react::bridging::fromJs<rust::String>(rt, obj$url, callInvoker);
+    auto _obj$method = react::bridging::fromJs<rust::String>(rt, obj$method, callInvoker);
+    auto _obj$headersJson = react::bridging::fromJs<rust::String>(rt, obj$headersJson, callInvoker);
+    auto _obj$body = react::bridging::fromJs<rust::String>(rt, obj$body, callInvoker);
     auto _obj$timeoutMs = react::bridging::fromJs<double>(rt, obj$timeoutMs, callInvoker);
+    auto _obj$allowInvalidCertificates = react::bridging::fromJs<bool>(rt, obj$allowInvalidCertificates, callInvoker);
 
-    craby::reactnativenitrotor::bridging::TorConfig ret = {
-      _obj$socksPort,
-      _obj$dataDir,
-      _obj$timeoutMs
+    craby::reactnativenitrotor::bridging::NativeHttpRequest ret = {
+      _obj$url,
+      _obj$method,
+      _obj$headersJson,
+      _obj$body,
+      _obj$timeoutMs,
+      _obj$allowInvalidCertificates
     };
 
     return ret;
   }
 
-  static jsi::Value toJs(jsi::Runtime &rt, craby::reactnativenitrotor::bridging::TorConfig value) {
+  static jsi::Value toJs(jsi::Runtime &rt, const craby::reactnativenitrotor::bridging::NativeHttpRequest& value) {
     jsi::Object obj = jsi::Object(rt);
-    auto _obj$socksPort = react::bridging::toJs(rt, value.socks_port);
-    auto _obj$dataDir = react::bridging::toJs(rt, value.data_dir);
+    auto _obj$url = react::bridging::toJs(rt, value.url);
+    auto _obj$method = react::bridging::toJs(rt, value.method);
+    auto _obj$headersJson = react::bridging::toJs(rt, value.headers_json);
+    auto _obj$body = react::bridging::toJs(rt, value.body);
     auto _obj$timeoutMs = react::bridging::toJs(rt, value.timeout_ms);
+    auto _obj$allowInvalidCertificates = react::bridging::toJs(rt, value.allow_invalid_certificates);
 
-    obj.setProperty(rt, "socks_port", _obj$socksPort);
-    obj.setProperty(rt, "data_dir", _obj$dataDir);
+    obj.setProperty(rt, "url", _obj$url);
+    obj.setProperty(rt, "method", _obj$method);
+    obj.setProperty(rt, "headers_json", _obj$headersJson);
+    obj.setProperty(rt, "body", _obj$body);
     obj.setProperty(rt, "timeout_ms", _obj$timeoutMs);
+    obj.setProperty(rt, "allow_invalid_certificates", _obj$allowInvalidCertificates);
+
+    return jsi::Value(rt, obj);
+  }
+};
+
+template <>
+struct Bridging<craby::reactnativenitrotor::bridging::NativeTorConfig> {
+  static craby::reactnativenitrotor::bridging::NativeTorConfig fromJs(jsi::Runtime &rt, const jsi::Value& value, std::shared_ptr<CallInvoker> callInvoker) {
+    auto obj = value.asObject(rt);
+    auto obj$dataDirectory = obj.getProperty(rt, "data_directory");
+    auto obj$socksPort = obj.getProperty(rt, "socks_port");
+    auto obj$bootstrapTimeoutMs = obj.getProperty(rt, "bootstrap_timeout_ms");
+
+    auto _obj$dataDirectory = react::bridging::fromJs<rust::String>(rt, obj$dataDirectory, callInvoker);
+    auto _obj$socksPort = react::bridging::fromJs<double>(rt, obj$socksPort, callInvoker);
+    auto _obj$bootstrapTimeoutMs = react::bridging::fromJs<double>(rt, obj$bootstrapTimeoutMs, callInvoker);
+
+    craby::reactnativenitrotor::bridging::NativeTorConfig ret = {
+      _obj$dataDirectory,
+      _obj$socksPort,
+      _obj$bootstrapTimeoutMs
+    };
+
+    return ret;
+  }
+
+  static jsi::Value toJs(jsi::Runtime &rt, const craby::reactnativenitrotor::bridging::NativeTorConfig& value) {
+    jsi::Object obj = jsi::Object(rt);
+    auto _obj$dataDirectory = react::bridging::toJs(rt, value.data_directory);
+    auto _obj$socksPort = react::bridging::toJs(rt, value.socks_port);
+    auto _obj$bootstrapTimeoutMs = react::bridging::toJs(rt, value.bootstrap_timeout_ms);
+
+    obj.setProperty(rt, "data_directory", _obj$dataDirectory);
+    obj.setProperty(rt, "socks_port", _obj$socksPort);
+    obj.setProperty(rt, "bootstrap_timeout_ms", _obj$bootstrapTimeoutMs);
 
     return jsi::Value(rt, obj);
   }

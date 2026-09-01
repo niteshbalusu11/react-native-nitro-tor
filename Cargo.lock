@@ -355,9 +355,9 @@ dependencies = [
 
 [[package]]
 name = "craby"
-version = "0.1.0-rc.3"
+version = "0.1.0-rc.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c395a1b88b0c7ee9bfc4489e3db125d03d5cf0d8fb4b0f070d06116243d7c87b"
+checksum = "3bc193a2e87ead15e91cde9cfccfcae745b7cf34835facd34eb160dcf8b476d7"
 dependencies = [
  "anyhow",
  "craby_macro",
@@ -365,9 +365,9 @@ dependencies = [
 
 [[package]]
 name = "craby_build"
-version = "0.1.0-rc.3"
+version = "0.1.0-rc.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f841cf8b3b930cc07adcd7ab6a444bdc6d6540c4e12719c99be7fa651056b3ee"
+checksum = "e1209d97a116c057e3f7d162c30bfb72fe4748a386585e4b6af86f11fd3d9fa8"
 dependencies = [
  "cxx-build",
  "toml",
@@ -375,9 +375,9 @@ dependencies = [
 
 [[package]]
 name = "craby_macro"
-version = "0.1.0-rc.3"
+version = "0.1.0-rc.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d5c1dfba287100b35f8a3dd8e5fc114d318dbed077ddb7f76f9a6876fd6feab"
+checksum = "de3abf75f4ae65b2d87916a61daf5668bdebcf71723692334021a20409a313bd"
 dependencies = [
  "proc-macro2 1.0.103",
  "quote 1.0.42",
@@ -1813,7 +1813,7 @@ dependencies = [
 
 [[package]]
 name = "react_native_nitro_tor"
-version = "0.0.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "anyhow",
  "craby",
@@ -1823,6 +1823,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "tokio 1.48.0",
  "tor",
 ]
 
@@ -2448,6 +2449,7 @@ dependencies = [
  "mio 1.1.0",
  "pin-project-lite 0.2.16",
  "socket2 0.6.1",
+ "tokio-macros",
  "windows-sys 0.61.2",
 ]
 
@@ -2463,6 +2465,17 @@ dependencies = [
  "tokio 0.2.25",
  "tokio 1.48.0",
  "tokio-stream",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c55a2eff8b69ce66c84f85e1da1c233edc36ceb85a2058d11b0d6a3c7e7569c"
+dependencies = [
+ "proc-macro2 1.0.103",
+ "quote 1.0.42",
+ "syn 2.0.110",
 ]
 
 [[package]]
@@ -2594,6 +2607,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "futures",
+ "hex",
  "httparse",
  "libtor",
  "log",

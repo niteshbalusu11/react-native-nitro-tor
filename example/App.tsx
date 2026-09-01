@@ -15,7 +15,7 @@ import {
   exists,
   mkdir,
 } from '@dr.pogodin/react-native-fs';
-import { RnTor } from 'react-native-nitro-tor';
+import { Tor, type TorStatus } from 'react-native-nitro-tor';
 
 // Constants
 const TOR_DATA_PATH = `${DocumentDirectoryPath}/tor_data`;
@@ -84,7 +84,8 @@ interface TorState {
   isSuccess: boolean | undefined;
   errorMessage: string | undefined;
   onionUrl: string | undefined;
-  controlUrl: string | undefined;
+  socksAddress: string | undefined;
+  controlAddress: string | undefined;
 }
 
 interface RequestResult {
@@ -106,7 +107,8 @@ export default function TorApp() {
     isSuccess: undefined,
     errorMessage: undefined,
     onionUrl: undefined,
-    controlUrl: undefined,
+    socksAddress: undefined,
+    controlAddress: undefined,
   });
   const [getResult, setGetResult] = useState<RequestResult | null>(null);
   const [onionGetResult, setOnionGetResult] = useState<RequestResult | null>(
@@ -174,6 +176,15 @@ export default function TorApp() {
   };
 
   useEffect(() => {
+    const unsubscribe = Tor.daemon.subscribe((status: TorStatus) => {
+      if (status.state === 'failed') {
+        setTorState(prev => ({
+          ...prev,
+          errorMessage: status.error.message,
+          isSuccess: false,
+        }));
+      }
+    });
     const initTor = async () => {
       try {
         // Ensure directory exists
@@ -181,28 +192,22 @@ export default function TorApp() {
 
         console.log('Ensuring data directory');
 
-        // Initialize service
-        const result = await RnTor.startTorIfNotRunning({
-          data_dir: TOR_DATA_PATH,
-          socks_port: 9050,
-          target_port: 9051,
-          timeout_ms: 60000,
+        const status = await Tor.daemon.start({
+          dataDirectory: TOR_DATA_PATH,
+          socksPort: 9050,
+          bootstrapTimeoutMs: 120000,
+        });
+        const hiddenService = await Tor.hiddenServices.create({
+          virtualPort: 80,
+          targetPort: 8080,
         });
 
-        // Log initialization result
-        console.log(result);
-
-        if (!result.is_success) {
-          throw new Error('Failed to initialize Tor service');
-        }
-
-        console.log('Tor service status', await RnTor.getServiceStatus());
-
         setTorState({
-          isSuccess: result.is_success,
-          errorMessage: result.error_message,
-          onionUrl: result.onion_address,
-          controlUrl: result.control,
+          isSuccess: true,
+          errorMessage: undefined,
+          onionUrl: hiddenService.onionAddress,
+          socksAddress: status.socksAddress,
+          controlAddress: status.controlAddress,
         });
       } catch (error: any) {
         console.error('Error in Tor initialization:', error);
@@ -218,7 +223,8 @@ export default function TorApp() {
 
     // Cleanup on unmount
     return () => {
-      RnTor.shutdownService().catch(console.error);
+      unsubscribe();
+      Tor.daemon.stop().catch(console.error);
     };
   }, []);
 
@@ -238,17 +244,15 @@ export default function TorApp() {
 
   const httpGet = async () => {
     try {
-      const result = await RnTor.httpGet({
-        headers: '',
-        timeout_ms: 20000,
-        trust_invalid_certs: false,
+      const result = await Tor.http.request({
         url: GET_URL,
+        timeoutMs: 20000,
       });
       console.log('httpGet result', result);
       setGetResult({
-        status: result.status_code,
+        status: result.statusCode,
         body: result.body,
-        error: result.error,
+        error: '',
       });
     } catch (err: any) {
       console.error('httpGet error', err);
@@ -262,17 +266,15 @@ export default function TorApp() {
 
   const onionHttpGet = async () => {
     try {
-      const result = await RnTor.httpGet({
-        headers: '',
-        timeout_ms: 30000,
-        trust_invalid_certs: false,
+      const result = await Tor.http.request({
         url: ONION_GET_URL,
+        timeoutMs: 30000,
       });
       console.log('onionHttpGet result', result);
       setOnionGetResult({
-        status: result.status_code,
+        status: result.statusCode,
         body: result.body,
-        error: result.error,
+        error: '',
       });
     } catch (err: any) {
       console.error('onionHttpGet error', err);
@@ -286,18 +288,18 @@ export default function TorApp() {
 
   const httpPost = async () => {
     try {
-      const result = await RnTor.httpPost({
+      const result = await Tor.http.request({
         url: POST_URL,
+        method: 'POST',
         body: '{"test":"data"}',
-        headers: '{"Content-Type":"application/json"}',
-        timeout_ms: 20000,
-        trust_invalid_certs: false,
+        headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 20000,
       });
       console.log('http post result', result);
       setPostResult({
-        status: result.status_code,
+        status: result.statusCode,
         body: result.body,
-        error: result.error,
+        error: '',
       });
     } catch (err: any) {
       console.error('httpPost error', err);
@@ -311,18 +313,18 @@ export default function TorApp() {
 
   const httpPut = async () => {
     try {
-      const result = await RnTor.httpPut({
+      const result = await Tor.http.request({
         url: PUT_URL,
+        method: 'PUT',
         body: '{"updated":"value"}',
-        headers: '{"Content-Type":"application/json"}',
-        timeout_ms: 20000,
-        trust_invalid_certs: false,
+        headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 20000,
       });
       console.log('http put result', result);
       setPutResult({
-        status: result.status_code,
+        status: result.statusCode,
         body: result.body,
-        error: result.error,
+        error: '',
       });
     } catch (err: any) {
       console.error('httpPut error', err);
@@ -336,17 +338,17 @@ export default function TorApp() {
 
   const httpDelete = async () => {
     try {
-      const result = await RnTor.httpDelete({
+      const result = await Tor.http.request({
         url: DELETE_URL,
-        headers: '{"Content-Type":"application/json"}',
-        timeout_ms: 20000,
-        trust_invalid_certs: false,
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        timeoutMs: 20000,
       });
       console.log('http delete result', result);
       setDeleteResult({
-        status: result.status_code,
+        status: result.statusCode,
         body: result.body,
-        error: result.error,
+        error: '',
       });
     } catch (err: any) {
       console.error('httpDelete error', err);
@@ -540,19 +542,21 @@ export default function TorApp() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>SOCKS proxy</Text>
                   <Text selectable style={styles.detailValue}>
-                    127.0.0.1:9050
+                    {torState.socksAddress}
                   </Text>
                 </View>
                 <View style={styles.detailDivider} />
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Control</Text>
+                  <Text style={styles.detailLabel}>Control endpoint</Text>
                   <Text selectable style={styles.detailValue}>
-                    {torState.controlUrl}
+                    {torState.controlAddress}
                   </Text>
                 </View>
                 <View style={styles.detailDivider} />
-                <View style={styles.detailRowStacked}>
+                <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Onion service</Text>
+                </View>
+                <View style={styles.detailRowStacked}>
                   <Text selectable style={styles.onionValue}>
                     {torState.onionUrl}
                   </Text>
