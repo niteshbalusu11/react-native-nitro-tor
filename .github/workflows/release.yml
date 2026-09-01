@@ -4,13 +4,109 @@ on:
   push:
     tags:
       - "v*" # Trigger on tags like v1.0.0
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Branch, tag, or commit to publish
+        required: true
+        default: master
+        type: string
+      release_tag:
+        description: GitHub release tag; must match v plus the package version
+        required: true
+        type: string
+      npm_dist_tag:
+        description: npm distribution tag
+        required: true
+        default: next
+        type: choice
+        options:
+          - next
+          - latest
+      prerelease:
+        description: Mark the GitHub release as a prerelease
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: package-release
+  cancel-in-progress: false
 
 jobs:
+  resolve_release:
+    runs-on: ubuntu-latest
+    outputs:
+      npm_dist_tag: ${{ steps.metadata.outputs.npm_dist_tag }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+      release_tag: ${{ steps.metadata.outputs.release_tag }}
+      source_sha: ${{ steps.metadata.outputs.source_sha }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Resolve and validate release metadata
+        id: metadata
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_NPM_DIST_TAG: ${{ inputs.npm_dist_tag }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          package_version="$(node -p "require('./package.json').version")"
+          expected_tag="v${package_version}"
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            release_tag="$INPUT_RELEASE_TAG"
+            npm_dist_tag="$INPUT_NPM_DIST_TAG"
+            prerelease="$INPUT_PRERELEASE"
+          else
+            release_tag="$GITHUB_REF_NAME"
+            npm_dist_tag="latest"
+            prerelease="false"
+          fi
+
+          if [[ "$release_tag" != "$expected_tag" ]]; then
+            echo "Release tag must be $expected_tag for package version $package_version"
+            exit 1
+          fi
+
+          if [[ "$package_version" == *-* && "$npm_dist_tag" == "latest" ]]; then
+            echo "Prerelease versions must not be published with the latest npm dist-tag"
+            exit 1
+          fi
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] \
+            && git ls-remote --exit-code --tags origin "refs/tags/$release_tag" >/dev/null 2>&1; then
+            echo "Release tag $release_tag already exists"
+            exit 1
+          fi
+
+          {
+            echo "npm_dist_tag=$npm_dist_tag"
+            echo "prerelease=$prerelease"
+            echo "release_tag=$release_tag"
+            echo "source_sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
   build_android:
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: resolve_release
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve_release.outputs.source_sha }}
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -34,9 +130,12 @@ jobs:
 
   build_ios:
     runs-on: blacksmith-6vcpu-macos-15
+    needs: resolve_release
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve_release.outputs.source_sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -58,16 +157,17 @@ jobs:
   publish_npm_and_github_release:
     runs-on: ubuntu-latest
     needs:
+      - resolve_release
       - build_android
       - build_ios
     permissions:
       contents: write # Required to create a release and upload assets
       id-token: write # Required for npm publish
     steps:
-      - name: Checkout code at tag
+      - name: Checkout validated release source
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ needs.resolve_release.outputs.source_sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -85,9 +185,23 @@ jobs:
         run: yarn tsdown
 
       - name: Publish to npm
-        run: npm publish
+        env:
+          NPM_DIST_TAG: ${{ needs.resolve_release.outputs.npm_dist_tag }}
+        run: npm publish --tag "$NPM_DIST_TAG"
 
       - name: Create GitHub Release
         env:
+          EVENT_NAME: ${{ github.event_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create ${{ github.ref_name }} --generate-notes
+          PRERELEASE: ${{ needs.resolve_release.outputs.prerelease }}
+          RELEASE_TAG: ${{ needs.resolve_release.outputs.release_tag }}
+          SOURCE_SHA: ${{ needs.resolve_release.outputs.source_sha }}
+        run: |
+          release_args=("$RELEASE_TAG" --generate-notes)
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            release_args+=(--target "$SOURCE_SHA")
+          fi
+          if [[ "$PRERELEASE" == "true" ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh release create "${release_args[@]}"
