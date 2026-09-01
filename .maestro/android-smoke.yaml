@@ -1,0 +1,17 @@
+appId: com.reactnativenitrotorexample
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: Tor is ready
+    timeout: 180000
+- pressKey: HOME
+- launchApp:
+    stopApp: false
+- assertVisible: Tor is ready
+- tapOn: GET Public request
+- scrollUntilVisible:
+    element:
+      text: Public GET
+    direction: DOWN
+    timeout: 60000

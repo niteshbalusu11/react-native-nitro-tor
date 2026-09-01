@@ -54,6 +54,16 @@ update(moduleCpp, (source) => {
   );
 });
 
+const androidCmake = 'android/CMakeLists.txt';
+update(androidCmake, (source) => {
+  return replaceRequired(
+    source,
+    `target_link_libraries(cxx-react-native-nitro-tor\n  # android\n  ReactAndroid::reactnative`,
+    `target_link_libraries(cxx-react-native-nitro-tor\n  # android\n  log\n  ReactAndroid::reactnative`,
+    androidCmake,
+  );
+});
+
 for (const path of [
   'crates/lib/include/CrabySignals.h',
   'ios/include/CrabySignals.h',

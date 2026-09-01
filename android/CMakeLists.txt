@@ -29,6 +29,7 @@ target_include_directories(cxx-react-native-nitro-tor PRIVATE
 
 target_link_libraries(cxx-react-native-nitro-tor
   # android
+  log
   ReactAndroid::reactnative
   ReactAndroid::jsi
   # react-native-nitro-tor-lib
