@@ -16,6 +16,8 @@ import type {
 const statusListeners = new Set<TorStatusListener>();
 let removeNativeStatusListener: (() => void) | undefined;
 let appStateSubscription: NativeEventSubscription | undefined;
+let nativeStatusRevision = 0;
+let latestRefreshId = 0;
 
 function assertPositiveInteger(value: number, field: string, code: 'INVALID_CONFIG' | 'INVALID_REQUEST'): void {
   if (!Number.isInteger(value) || value <= 0) {
@@ -53,9 +55,13 @@ function dispatchStatus(status: TorStatus): void {
 }
 
 async function refreshStatus(): Promise<TorStatus> {
+  const refreshId = ++latestRefreshId;
+  const revisionAtStart = nativeStatusRevision;
   try {
     const status = parseStatus(await NativeTor.getStatus());
-    dispatchStatus(status);
+    if (refreshId === latestRefreshId && revisionAtStart === nativeStatusRevision) {
+      dispatchStatus(status);
+    }
     return status;
   } catch (error) {
     throw toTorError(error);
@@ -66,7 +72,9 @@ function ensureStatusObservers(): void {
   if (!removeNativeStatusListener) {
     removeNativeStatusListener = NativeTor.onStatusChange((payload) => {
       try {
-        dispatchStatus(parseStatus(payload));
+        const status = parseStatus(payload);
+        nativeStatusRevision += 1;
+        dispatchStatus(status);
       } catch (error) {
         console.error('Unable to process a native Tor status update', error);
       }

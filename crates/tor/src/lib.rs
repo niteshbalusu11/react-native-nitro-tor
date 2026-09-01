@@ -112,6 +112,29 @@ pub fn onion_address_for_secret_key(secret_key: [u8; 64]) -> String {
         .to_string()
 }
 
+fn query_connectivity(
+    control_port: &str,
+    query_timeout: Duration,
+) -> Result<(NetworkLiveness, bool), TorErrors> {
+    let control_port = control_port.to_string();
+    ensure_runtime().block_on(async move {
+        match timeout(query_timeout, async move {
+            let mut connection = ControlConnection::connect(&control_port).await?;
+            let network = connection.get_info("network-liveness").await?;
+            let circuit = connection.get_info("status/circuit-established").await?;
+            Ok::<_, TorErrors>((
+                parse_network_liveness(&network),
+                parse_circuit_established(&circuit).unwrap_or(false),
+            ))
+        })
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err(TorErrors::ControlTimeout),
+        }
+    })
+}
+
 fn normalize_onion_service_id(onion: &str) -> &str {
     onion
         .split(':')
@@ -162,6 +185,8 @@ pub enum TorErrors {
     StartCancelled,
     #[error("Timed out waiting for Tor to bootstrap")]
     BootstrapTimeout,
+    #[error("Timed out waiting for the Tor control connection")]
+    ControlTimeout,
     #[error("Error Io:")]
     IoError(#[from] io::Error),
     #[error("Error Threading:")]
@@ -329,6 +354,7 @@ impl TorService {
         cancelled: Arc<AtomicBool>,
     ) -> Result<OwnedTorService, TorErrors> {
         let bootstrap_timeout_ms = self.bootstrap_timeout_ms;
+        let event_cancellation = cancelled.clone();
         let connection = ensure_runtime().block_on(
             async {
                 let mut ac = self
@@ -359,7 +385,7 @@ impl TorService {
                     _ctl: RefCell::new(Some(ac)),
                     event_handle: None,
                 };
-                service.start_event_monitor(observer);
+                service.start_event_monitor(observer, event_cancellation);
                 Ok(service)
             }
             Err(error) => {
@@ -474,21 +500,7 @@ impl OwnedTorService {
     }
 
     pub fn get_connectivity(&self) -> Result<(NetworkLiveness, bool), TorErrors> {
-        ensure_runtime().block_on(
-            async {
-                let mut ctl = self._ctl.borrow_mut();
-                let ctl = ctl.as_mut().ok_or(TorErrors::BootStrapError(
-                    "Unable to get control connection".into(),
-                ))?;
-                let network = ctl.get_info("network-liveness").await?;
-                let circuit = ctl.get_info("status/circuit-established").await?;
-                Ok((
-                    parse_network_liveness(&network),
-                    parse_circuit_established(&circuit).unwrap_or(false),
-                ))
-            }
-            .compat(),
-        )
+        query_connectivity(&self.control_port, Duration::from_secs(2))
     }
 
     pub fn request_new_identity(&self) -> Result<(), TorErrors> {
@@ -499,28 +511,58 @@ impl OwnedTorService {
         })
     }
 
-    fn start_event_monitor(&mut self, observer: Option<TorStatusObserver>) {
+    pub fn is_daemon_finished(&self) -> bool {
+        self._handle
+            .as_ref()
+            .is_some_and(std::thread::JoinHandle::is_finished)
+    }
+
+    fn start_event_monitor(
+        &mut self,
+        observer: Option<TorStatusObserver>,
+        cancelled: Arc<AtomicBool>,
+    ) {
         let Some(observer) = observer else {
             return;
         };
         let control_port = self.control_port.clone();
         self.event_handle = Some(ensure_runtime().spawn(async move {
-            loop {
+            let mut retry_delay = std::time::Duration::from_millis(250);
+            while !cancelled.load(Ordering::SeqCst) {
                 let mut connection = match ControlConnection::connect(&control_port).await {
                     Ok(connection) => connection,
                     Err(error) => {
                         observer(TorControlEvent::ControlConnectionFailed(error.to_string()));
-                        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                        if cancelled.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        tokio::time::sleep(retry_delay).await;
+                        retry_delay = (retry_delay * 2).min(std::time::Duration::from_secs(4));
                         continue;
                     }
                 };
                 if let Err(error) = connection.subscribe().await {
                     observer(TorControlEvent::ControlConnectionFailed(error.to_string()));
-                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                    if cancelled.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    tokio::time::sleep(retry_delay).await;
+                    retry_delay = (retry_delay * 2).min(std::time::Duration::from_secs(4));
                     continue;
                 }
+                retry_delay = std::time::Duration::from_millis(250);
+                if let Ok(value) = connection.get_info("network-liveness").await {
+                    observer(TorControlEvent::NetworkLiveness(parse_network_liveness(
+                        &value,
+                    )));
+                }
+                if let Ok(value) = connection.get_info("status/circuit-established").await {
+                    if let Some(established) = parse_circuit_established(&value) {
+                        observer(TorControlEvent::CircuitEstablished(established));
+                    }
+                }
 
-                loop {
+                while !cancelled.load(Ordering::SeqCst) {
                     match connection.next_event().await {
                         Ok(TorControlEvent::CircuitChanged) => {
                             if let Ok(value) =
@@ -538,7 +580,9 @@ impl OwnedTorService {
                         }
                     }
                 }
-                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                if !cancelled.load(Ordering::SeqCst) {
+                    tokio::time::sleep(retry_delay).await;
+                }
             }
         }));
     }
@@ -644,8 +688,9 @@ mod tests {
     use super::*;
     use serial_test::serial;
     use std::convert::TryInto;
-    use std::io::Write;
+    use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
+    use std::thread;
 
     fn owned_service_without_bootstrap(socks_port: u16, data_dir: &str) -> OwnedTorService {
         let service = TorService::new(TorServiceParam {
@@ -685,6 +730,45 @@ mod tests {
     fn normalizes_onion_address_for_control_commands() {
         assert_eq!(normalize_onion_service_id("example.onion:80"), "example");
         assert_eq!(normalize_onion_service_id("example.onion"), "example");
+    }
+
+    #[test]
+    fn connectivity_query_times_out_when_control_stalls() {
+        let cookie_path = std::env::temp_dir().join(format!(
+            "react-native-nitro-tor-connectivity-cookie-{}",
+            std::process::id()
+        ));
+        fs::write(&cookie_path, [9_u8; 32]).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap().to_string();
+        let cookie_path_for_server = cookie_path.clone();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut command = String::new();
+            reader.read_line(&mut command).unwrap();
+            write!(
+                stream,
+                "250-PROTOCOLINFO 1\r\n250-AUTH METHODS=COOKIE COOKIEFILE=\"{}\"\r\n250-VERSION Tor=\"0.4.9.11\"\r\n250 OK\r\n",
+                cookie_path_for_server.display()
+            )
+            .unwrap();
+            stream.flush().unwrap();
+            command.clear();
+            reader.read_line(&mut command).unwrap();
+            stream.write_all(b"250 OK\r\n").unwrap();
+            stream.flush().unwrap();
+            command.clear();
+            reader.read_line(&mut command).unwrap();
+            assert_eq!(command, "GETINFO network-liveness\r\n");
+            thread::sleep(std::time::Duration::from_millis(150));
+        });
+
+        let result = query_connectivity(&address, Duration::from_millis(50));
+
+        assert!(matches!(result, Err(TorErrors::ControlTimeout)));
+        server.join().unwrap();
+        fs::remove_file(cookie_path).unwrap();
     }
 
     #[test]

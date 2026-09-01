@@ -1695,7 +1695,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ReactNativeNitroTor (1.0.0-rc.1):
+  - ReactNativeNitroTor (1.0.0-rc.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety

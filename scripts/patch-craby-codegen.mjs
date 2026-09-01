@@ -42,15 +42,50 @@ const moduleCpp = 'cpp/CxxReactNativeNitroTorModule.cpp';
 update(moduleCpp, (source) => {
   source = replaceRequired(
     source,
+    '  threadPool_ = std::make_shared<craby::reactnativenitrotor::utils::ThreadPool>(10);',
+    '  threadPool_ = std::make_shared<craby::reactnativenitrotor::utils::ThreadPool>(10);\n  lifecycleThreadPool_ = std::make_shared<craby::reactnativenitrotor::utils::ThreadPool>(1);',
+    moduleCpp,
+  );
+  source = replaceRequired(
+    source,
+    '  // Shutdown thread pool\n  threadPool_->shutdown();',
+    '  // Shutdown thread pool\n  lifecycleThreadPool_->shutdown();\n  threadPool_->shutdown();',
+    moduleCpp,
+  );
+  source = replaceRequired(
+    source,
     '  listenersMap_.clear();',
     '  {\n    std::lock_guard<std::mutex> lock(listenersMutex_);\n    listenersMap_.clear();\n  }',
     moduleCpp,
   );
-  return replaceRequired(
+  source = replaceRequired(
     source,
     `    if (thisModule.listenersMap_.find(name) == thisModule.listenersMap_.end()) {\n      thisModule.listenersMap_[name] = std::unordered_map<size_t, std::shared_ptr<facebook::jsi::Function>>();\n    }\n\n    {`,
     '    {',
     moduleCpp,
+  );
+  const stopStart = source.indexOf('jsi::Value CxxReactNativeNitroTorModule::stop(');
+  const stopEnd = source.indexOf('\n}\n\njsi::Value', stopStart);
+  if (stopStart < 0 || stopEnd < 0) {
+    throw new Error(`Craby output changed; unable to patch ${moduleCpp}`);
+  }
+  const stopMethod = source.slice(stopStart, stopEnd);
+  const patchedStopMethod = replaceRequired(
+    stopMethod,
+    '    thisModule.threadPool_->enqueue([it_, promise]() mutable {',
+    '    thisModule.lifecycleThreadPool_->enqueue([it_, promise]() mutable {',
+    moduleCpp,
+  );
+  return source.slice(0, stopStart) + patchedStopMethod + source.slice(stopEnd);
+});
+
+const moduleHpp = 'cpp/CxxReactNativeNitroTorModule.hpp';
+update(moduleHpp, (source) => {
+  return replaceRequired(
+    source,
+    '  std::shared_ptr<craby::reactnativenitrotor::utils::ThreadPool> threadPool_;',
+    '  std::shared_ptr<craby::reactnativenitrotor::utils::ThreadPool> threadPool_;\n  std::shared_ptr<craby::reactnativenitrotor::utils::ThreadPool> lifecycleThreadPool_;',
+    moduleHpp,
   );
 });
 

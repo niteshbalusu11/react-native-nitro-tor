@@ -30,6 +30,7 @@ CxxReactNativeNitroTorModule::CxxReactNativeNitroTorModule(
     [](craby::reactnativenitrotor::bridging::ReactNativeNitroTor *ptr) { rust::Box<craby::reactnativenitrotor::bridging::ReactNativeNitroTor>::from_raw(ptr); }
   );
   threadPool_ = std::make_shared<craby::reactnativenitrotor::utils::ThreadPool>(10);
+  lifecycleThreadPool_ = std::make_shared<craby::reactnativenitrotor::utils::ThreadPool>(1);
   methodMap_["createHiddenService"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::createHiddenService};
   methodMap_["getStatus"] = MethodMetadata{0, &CxxReactNativeNitroTorModule::getStatus};
   methodMap_["httpRequest"] = MethodMetadata{1, &CxxReactNativeNitroTorModule::httpRequest};
@@ -61,6 +62,7 @@ void CxxReactNativeNitroTorModule::invalidate() {
   manager.unregisterDelegate(id);
 
   // Shutdown thread pool
+  lifecycleThreadPool_->shutdown();
   threadPool_->shutdown();
 }
 
@@ -353,7 +355,7 @@ jsi::Value CxxReactNativeNitroTorModule::stop(jsi::Runtime &rt,
 
     react::AsyncPromise<std::monostate> promise(rt, callInvoker);
 
-    thisModule.threadPool_->enqueue([it_, promise]() mutable {
+    thisModule.lifecycleThreadPool_->enqueue([it_, promise]() mutable {
       try {
         craby::reactnativenitrotor::bridging::stop(*it_);
         promise.resolve(std::monostate{});

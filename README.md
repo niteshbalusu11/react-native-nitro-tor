@@ -2,7 +2,7 @@
 
 Run a process-wide Tor daemon, make HTTP requests through it, and manage ephemeral v3 onion services from React Native. The native bridge is built with [Craby](https://craby.rs).
 
-> `1.0.0-rc.1` is a breaking release. The pre-1.0 `RnTor` methods and numeric status values have been removed.
+> `1.0.0-rc.2` is a breaking release. The pre-1.0 `RnTor` methods and numeric status values have been removed.
 
 ## Installation
 
@@ -153,7 +153,7 @@ All operational failures reject with `TorError`, which exposes a stable `code` a
 
 ```bash
 yarn install
-yarn crabygen codegen
+yarn codegen
 yarn example start
 ```
 

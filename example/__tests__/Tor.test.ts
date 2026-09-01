@@ -128,4 +128,28 @@ describe('Tor facade', () => {
     unsubscribeSecond();
     consoleError.mockRestore();
   });
+
+  it('does not publish a stale refresh after a newer native status event', async () => {
+    let resolveStatus: ((status: string) => void) | undefined;
+    mockNative.getStatus.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveStatus = resolve;
+        }),
+    );
+    const listener = jest.fn();
+    const unsubscribe = Tor.daemon.subscribe(listener);
+    const nativeListener = mockNative.onStatusChange.mock.calls[0][0] as (payload: string) => void;
+
+    nativeListener('{"state":"stopping"}');
+    resolveStatus?.(
+      '{"state":"running","socksAddress":"127.0.0.1:19050","controlAddress":"127.0.0.1:19051","connectivity":{"network":"up","circuitEstablished":true}}',
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenLastCalledWith({ state: 'stopping' });
+    unsubscribe();
+  });
 });

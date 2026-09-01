@@ -1,6 +1,6 @@
 {
   "name": "react-native-nitro-tor",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "Tor Daemon and Onion Routing Client for React-Native",
   "workspaces": [
     "example"

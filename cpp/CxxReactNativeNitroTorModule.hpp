@@ -73,6 +73,7 @@ protected:
     std::unordered_map<size_t, std::shared_ptr<facebook::jsi::Function>>>
     listenersMap_;
   std::shared_ptr<craby::reactnativenitrotor::utils::ThreadPool> threadPool_;
+  std::shared_ptr<craby::reactnativenitrotor::utils::ThreadPool> lifecycleThreadPool_;
 };
 
 } // namespace modules

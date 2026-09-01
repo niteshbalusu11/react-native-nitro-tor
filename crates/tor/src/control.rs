@@ -2,6 +2,7 @@ use crate::TorErrors;
 use crate::status::{
     BootstrapStatus, NetworkLiveness, parse_bootstrap_status, parse_network_liveness,
 };
+use std::collections::VecDeque;
 use std::fs;
 use tokio::net::TcpStream;
 use torut::control::{Conn, ConnError};
@@ -73,6 +74,7 @@ pub fn cookie_path_from_protocol_info(lines: &[String]) -> Result<String, TorErr
 
 pub struct ControlConnection {
     conn: Conn<TcpStream>,
+    pending_events: VecDeque<TorControlEvent>,
 }
 
 impl ControlConnection {
@@ -97,7 +99,10 @@ impl ControlConnection {
                 ConnError::InvalidResponseCode(code),
             ));
         }
-        Ok(Self { conn })
+        Ok(Self {
+            conn,
+            pending_events: VecDeque::new(),
+        })
     }
 
     pub async fn command(&mut self, command: &str) -> Result<Vec<String>, TorErrors> {
@@ -107,6 +112,9 @@ impl ControlConnection {
         loop {
             let (code, lines) = self.conn.receive_data().await?;
             if code == 650 {
+                if let Some(event) = parse_control_event(&lines) {
+                    self.pending_events.push_back(event);
+                }
                 continue;
             }
             if code != 250 {
@@ -134,6 +142,9 @@ impl ControlConnection {
     }
 
     pub async fn next_event(&mut self) -> Result<TorControlEvent, TorErrors> {
+        if let Some(event) = self.pending_events.pop_front() {
+            return Ok(event);
+        }
         loop {
             let (code, lines) = self.conn.receive_data().await?;
             if code == 650 {
@@ -153,6 +164,11 @@ impl ControlConnection {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ensure_runtime;
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn extracts_cookie_path_from_protocol_info() {
@@ -198,5 +214,59 @@ mod tests {
             parse_control_event(&["STREAM 7 NEW 0 example.com:443".to_string()]),
             None
         );
+    }
+
+    #[test]
+    fn preserves_events_interleaved_with_command_responses() {
+        let cookie_path = std::env::temp_dir().join(format!(
+            "react-native-nitro-tor-control-cookie-{}",
+            std::process::id()
+        ));
+        std::fs::write(&cookie_path, [7_u8; 32]).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap().to_string();
+        let cookie_path_for_server = cookie_path.clone();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut command = String::new();
+            reader.read_line(&mut command).unwrap();
+            assert_eq!(command, "PROTOCOLINFO 1\r\n");
+            write!(
+                stream,
+                "250-PROTOCOLINFO 1\r\n250-AUTH METHODS=COOKIE COOKIEFILE=\"{}\"\r\n250-VERSION Tor=\"0.4.9.11\"\r\n250 OK\r\n",
+                cookie_path_for_server.display()
+            )
+            .unwrap();
+            stream.flush().unwrap();
+
+            command.clear();
+            reader.read_line(&mut command).unwrap();
+            assert!(command.starts_with("AUTHENTICATE "));
+            stream.write_all(b"250 OK\r\n").unwrap();
+            stream.flush().unwrap();
+
+            command.clear();
+            reader.read_line(&mut command).unwrap();
+            assert_eq!(command, "SETEVENTS STATUS_CLIENT NETWORK_LIVENESS CIRC\r\n");
+            stream
+                .write_all(b"650 NETWORK_LIVENESS DOWN\r\n250 OK\r\n")
+                .unwrap();
+            stream.flush().unwrap();
+            thread::sleep(Duration::from_millis(250));
+        });
+
+        let event = ensure_runtime().block_on(async {
+            let mut connection = ControlConnection::connect(&address).await.unwrap();
+            connection.subscribe().await.unwrap();
+            tokio::time::timeout(Duration::from_millis(100), connection.next_event()).await
+        });
+
+        assert!(matches!(
+            event,
+            Ok(Ok(TorControlEvent::NetworkLiveness(NetworkLiveness::Down)))
+        ));
+        server.join().unwrap();
+        std::fs::remove_file(cookie_path).unwrap();
     }
 }

@@ -10,12 +10,59 @@ use tor::control::TorControlEvent;
 use tor::http_client::{make_http_request_async, HttpMethod, HttpRequestParams};
 use tor::status::{BootstrapStatus, NetworkLiveness};
 use tor::{
-    ensure_runtime, onion_address_for_secret_key, OwnedTorService, TorErrors,
-    TorHiddenServiceParam, TorService, TorServiceParam,
+    ensure_runtime, onion_address_for_secret_key, OwnedTorService, TorErrors, TorHiddenService,
+    TorHiddenServiceParam, TorService, TorServiceParam, TorStatusObserver,
 };
 
 pub type NativeResult<T> = Result<T, anyhow::Error>;
 type StatusEmitter = Arc<dyn Fn(String) + Send + Sync + 'static>;
+type ManagedTorService = Arc<Mutex<Box<dyn TorServiceAdapter>>>;
+
+trait TorServiceAdapter: Send {
+    fn control_address(&self) -> &str;
+    fn get_connectivity(&self) -> Result<(NetworkLiveness, bool), TorErrors>;
+    fn is_daemon_finished(&self) -> bool;
+    fn request_new_identity(&self) -> Result<(), TorErrors>;
+    fn create_hidden_service(
+        &mut self,
+        param: TorHiddenServiceParam,
+    ) -> Result<TorHiddenService, TorErrors>;
+    fn delete_hidden_service(&mut self, onion: String) -> Result<(), TorErrors>;
+    fn shutdown(&mut self) -> Result<(), TorErrors>;
+}
+
+impl TorServiceAdapter for OwnedTorService {
+    fn control_address(&self) -> &str {
+        &self.control_port
+    }
+
+    fn get_connectivity(&self) -> Result<(NetworkLiveness, bool), TorErrors> {
+        OwnedTorService::get_connectivity(self)
+    }
+
+    fn is_daemon_finished(&self) -> bool {
+        OwnedTorService::is_daemon_finished(self)
+    }
+
+    fn request_new_identity(&self) -> Result<(), TorErrors> {
+        OwnedTorService::request_new_identity(self)
+    }
+
+    fn create_hidden_service(
+        &mut self,
+        param: TorHiddenServiceParam,
+    ) -> Result<TorHiddenService, TorErrors> {
+        OwnedTorService::create_hidden_service(self, param)
+    }
+
+    fn delete_hidden_service(&mut self, onion: String) -> Result<(), TorErrors> {
+        OwnedTorService::delete_hidden_service(self, onion)
+    }
+
+    fn shutdown(&mut self) -> Result<(), TorErrors> {
+        OwnedTorService::shutdown(self)
+    }
+}
 
 static MANAGER: OnceCell<TorManager> = OnceCell::new();
 static LOGGER: OnceCell<Logger> = OnceCell::new();
@@ -106,7 +153,7 @@ struct ManagerInner {
     status: TorStatus,
     pending_statuses: VecDeque<TorStatus>,
     config: Option<TorConfig>,
-    service: Option<OwnedTorService>,
+    service: Option<ManagedTorService>,
     start_in_progress: bool,
     cancellation: Arc<AtomicBool>,
     hidden_services: HashSet<String>,
@@ -173,39 +220,66 @@ impl TorManager {
     fn handle_control_event(&self, event: TorControlEvent) {
         let updated = {
             let mut inner = self.inner.lock().unwrap();
-            let changed = match (&mut inner.status, event) {
-                (TorStatus::Starting { bootstrap }, TorControlEvent::Bootstrap(next)) => {
-                    *bootstrap = next;
-                    true
+            let daemon_failure = if let TorControlEvent::ControlConnectionFailed(message) = &event {
+                if matches!(inner.status, TorStatus::Running { .. })
+                    && inner
+                        .service
+                        .as_ref()
+                        .is_some_and(|service| service.lock().unwrap().is_daemon_finished())
+                {
+                    Some(message.clone())
+                } else {
+                    None
                 }
-                (
-                    TorStatus::Running { connectivity, .. },
-                    TorControlEvent::NetworkLiveness(network),
-                ) => {
-                    connectivity.network = network.into();
-                    true
-                }
-                (
-                    TorStatus::Running { connectivity, .. },
-                    TorControlEvent::CircuitEstablished(established),
-                ) => {
-                    connectivity.circuit_established = established;
-                    true
-                }
-                (
-                    TorStatus::Running { connectivity, .. },
-                    TorControlEvent::ControlConnectionFailed(_),
-                ) => {
-                    connectivity.network = NetworkState::Unknown;
-                    connectivity.circuit_established = false;
-                    true
-                }
-                _ => false,
-            };
-            if changed {
-                Some(inner.queue_current_status())
             } else {
                 None
+            };
+            if let Some(message) = daemon_failure {
+                inner.cancellation.store(true, Ordering::SeqCst);
+                inner.hidden_services.clear();
+                Some(inner.set_status(TorStatus::Failed {
+                    error: TorErrorPayload {
+                        code: "CONTROL_CONNECTION_FAILED".to_string(),
+                        message,
+                    },
+                }))
+            } else {
+                let changed = match (&mut inner.status, event) {
+                    (TorStatus::Starting { bootstrap }, TorControlEvent::Bootstrap(next)) => {
+                        *bootstrap = next;
+                        true
+                    }
+                    (
+                        TorStatus::Running { connectivity, .. },
+                        TorControlEvent::NetworkLiveness(network),
+                    ) => {
+                        connectivity.network = network.into();
+                        true
+                    }
+                    (
+                        TorStatus::Running { connectivity, .. },
+                        TorControlEvent::CircuitEstablished(established),
+                    ) => {
+                        connectivity.circuit_established = established;
+                        true
+                    }
+                    (
+                        TorStatus::Running { connectivity, .. },
+                        TorControlEvent::ControlConnectionFailed(_),
+                    ) => {
+                        let changed = connectivity.network != NetworkState::Unknown
+                            || connectivity.circuit_established;
+                        connectivity.network = NetworkState::Unknown;
+                        connectivity.circuit_established = false;
+                        changed
+                    }
+                    _ => false,
+                };
+                if changed {
+                    Some(inner.queue_current_status())
+                } else {
+                    None
+                }
             }
         };
         if let Some(status) = updated {
@@ -312,7 +386,22 @@ pub fn validate_timeout(value: f64, field: &str, code: &str) -> NativeResult<u64
 }
 
 pub fn start(config: TorConfig) -> NativeResult<String> {
-    let manager = manager();
+    let launch_config = config.clone();
+    start_with(manager(), config, move |observer, cancellation| {
+        TorService::new(TorServiceParam {
+            socks_port: Some(launch_config.socks_port),
+            data_dir: launch_config.data_directory.clone(),
+            bootstrap_timeout_ms: Some(launch_config.bootstrap_timeout_ms),
+        })
+        .and_then(|service| service.into_owned_node_with_observer(Some(observer), cancellation))
+        .map(|service| Box::new(service) as Box<dyn TorServiceAdapter>)
+    })
+}
+
+fn start_with<F>(manager: &'static TorManager, config: TorConfig, launch: F) -> NativeResult<String>
+where
+    F: FnOnce(TorStatusObserver, Arc<AtomicBool>) -> Result<Box<dyn TorServiceAdapter>, TorErrors>,
+{
     {
         let mut inner = manager.inner.lock().unwrap();
         loop {
@@ -377,14 +466,7 @@ pub fn start(config: TorConfig) -> NativeResult<String> {
 
     let cancellation = manager.inner.lock().unwrap().cancellation.clone();
     let observer = Arc::new(move |event| manager.handle_control_event(event));
-    let service = TorService::new(TorServiceParam {
-        socks_port: Some(config.socks_port),
-        data_dir: config.data_directory.clone(),
-        bootstrap_timeout_ms: Some(config.bootstrap_timeout_ms),
-    })
-    .and_then(|service| {
-        service.into_owned_node_with_observer(Some(observer), cancellation.clone())
-    });
+    let service = launch(observer, cancellation.clone());
 
     match service {
         Ok(mut service) => {
@@ -405,7 +487,8 @@ pub fn start(config: TorConfig) -> NativeResult<String> {
                 return Err(native_error("TOR_STOPPED", "Tor stopped during startup"));
             }
 
-            let control_address = service.control_port.trim().to_string();
+            let control_address = service.control_address().trim().to_string();
+            let service = Arc::new(Mutex::new(service));
             let status = {
                 let mut inner = manager.inner.lock().unwrap();
                 inner.service = Some(service);
@@ -447,7 +530,7 @@ pub fn start(config: TorConfig) -> NativeResult<String> {
 }
 
 fn dispose_retained_failed_service(manager: &TorManager) -> NativeResult<()> {
-    let Some((mut service, stopping)) = ({
+    let Some((service, stopping)) = ({
         let mut inner = manager.inner.lock().unwrap();
         if !matches!(inner.status, TorStatus::Failed { .. }) {
             None
@@ -463,7 +546,7 @@ fn dispose_retained_failed_service(manager: &TorManager) -> NativeResult<()> {
     };
 
     manager.publish(&stopping);
-    let shutdown_result = service.shutdown();
+    let shutdown_result = service.lock().unwrap().shutdown();
     let stopped = {
         let mut inner = manager.inner.lock().unwrap();
         inner.config = None;
@@ -478,7 +561,10 @@ fn dispose_retained_failed_service(manager: &TorManager) -> NativeResult<()> {
 }
 
 pub fn stop() -> NativeResult<()> {
-    let manager = manager();
+    stop_with(manager())
+}
+
+fn stop_with(manager: &'static TorManager) -> NativeResult<()> {
     let service = {
         let mut inner = manager.inner.lock().unwrap();
         match inner.status {
@@ -514,7 +600,9 @@ pub fn stop() -> NativeResult<()> {
         service
     };
 
-    let shutdown_result = service.map(|mut service| service.shutdown()).transpose();
+    let shutdown_result = service
+        .map(|service| service.lock().unwrap().shutdown())
+        .transpose();
     let status = {
         let mut inner = manager.inner.lock().unwrap();
         inner.config = None;
@@ -530,22 +618,50 @@ pub fn stop() -> NativeResult<()> {
 }
 
 pub fn get_status() -> NativeResult<String> {
-    let manager = manager();
+    get_status_with(manager())
+}
+
+enum ConnectivityObservation {
+    Available(NetworkLiveness, bool),
+    Unavailable,
+    DaemonExited,
+}
+
+fn get_status_with(manager: &'static TorManager) -> NativeResult<String> {
+    let service = {
+        let inner = manager.inner.lock().unwrap();
+        if matches!(inner.status, TorStatus::Running { .. }) {
+            inner.service.clone()
+        } else {
+            None
+        }
+    };
+    let observation = service.as_ref().map(|service| {
+        let service = service.lock().unwrap();
+        if service.is_daemon_finished() {
+            ConnectivityObservation::DaemonExited
+        } else {
+            match service.get_connectivity() {
+                Ok((network, circuit_established)) => {
+                    ConnectivityObservation::Available(network, circuit_established)
+                }
+                Err(_) => ConnectivityObservation::Unavailable,
+            }
+        }
+    });
     let (status, changed) = {
         let mut inner = manager.inner.lock().unwrap();
-        let connectivity = if matches!(inner.status, TorStatus::Running { .. }) {
+        let mut changed = false;
+        let mut queued = false;
+        let same_service = service.as_ref().is_some_and(|observed| {
             inner
                 .service
                 .as_ref()
-                .map(|service| service.get_connectivity())
-        } else {
-            None
-        };
-        let mut changed = false;
-        let mut queued = false;
-        if let Some(connectivity) = connectivity {
-            match connectivity {
-                Ok((network, circuit_established)) => {
+                .is_some_and(|current| Arc::ptr_eq(observed, current))
+        });
+        if same_service && matches!(inner.status, TorStatus::Running { .. }) {
+            match observation {
+                Some(ConnectivityObservation::Available(network, circuit_established)) => {
                     if let TorStatus::Running { connectivity, .. } = &mut inner.status {
                         let network = network.into();
                         if connectivity.network != network
@@ -557,16 +673,30 @@ pub fn get_status() -> NativeResult<String> {
                         }
                     }
                 }
-                Err(error) => {
+                Some(ConnectivityObservation::Unavailable) => {
+                    if let TorStatus::Running { connectivity, .. } = &mut inner.status {
+                        if connectivity.network != NetworkState::Unknown
+                            || connectivity.circuit_established
+                        {
+                            connectivity.network = NetworkState::Unknown;
+                            connectivity.circuit_established = false;
+                            changed = true;
+                        }
+                    }
+                }
+                Some(ConnectivityObservation::DaemonExited) => {
+                    inner.cancellation.store(true, Ordering::SeqCst);
+                    inner.hidden_services.clear();
                     inner.set_status(TorStatus::Failed {
                         error: TorErrorPayload {
                             code: "CONTROL_CONNECTION_FAILED".to_string(),
-                            message: error.to_string(),
+                            message: "Tor daemon exited unexpectedly".to_string(),
                         },
                     });
                     changed = true;
                     queued = true;
                 }
+                None => {}
             }
         }
         if changed && !queued {
@@ -582,19 +712,26 @@ pub fn get_status() -> NativeResult<String> {
 
 pub fn request_new_identity() -> NativeResult<()> {
     let manager = manager();
-    let inner = manager.inner.lock().unwrap();
-    if !matches!(inner.status, TorStatus::Running { .. }) {
-        return Err(native_error(
-            "NOT_RUNNING",
-            "Tor must be running to request a new identity",
-        ));
-    }
-    inner
-        .service
-        .as_ref()
-        .ok_or_else(|| native_error("NOT_RUNNING", "Tor is not running"))?
+    let service = {
+        let inner = manager.inner.lock().unwrap();
+        if !matches!(inner.status, TorStatus::Running { .. }) {
+            return Err(native_error(
+                "NOT_RUNNING",
+                "Tor must be running to request a new identity",
+            ));
+        }
+        inner
+            .service
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| native_error("NOT_RUNNING", "Tor is not running"))?
+    };
+    let result = service
+        .lock()
+        .unwrap()
         .request_new_identity()
-        .map_err(|error| native_error("NEW_IDENTITY_FAILED", error.to_string()))
+        .map_err(|error| native_error("NEW_IDENTITY_FAILED", error.to_string()));
+    result
 }
 
 pub fn http_request(request: HttpRequest) -> NativeResult<String> {
@@ -714,9 +851,11 @@ pub fn create_hidden_service(options: HiddenServiceOptions) -> NativeResult<Hidd
     }
     let service = inner
         .service
-        .as_mut()
+        .as_ref()
         .ok_or_else(|| native_error("NOT_RUNNING", "Tor is not running"))?;
     let result = service
+        .lock()
+        .unwrap()
         .create_hidden_service(TorHiddenServiceParam {
             to_port: options.target_port,
             hs_port: options.virtual_port,
@@ -757,8 +896,10 @@ pub fn remove_hidden_service(onion_address: String) -> NativeResult<()> {
     }
     let result = inner
         .service
-        .as_mut()
+        .as_ref()
         .ok_or_else(|| native_error("NOT_RUNNING", "Tor is not running"))?
+        .lock()
+        .unwrap()
         .delete_hidden_service(onion_address.clone());
     if let Err(error) = result {
         inner.hidden_services.insert(onion_address);
@@ -774,6 +915,64 @@ fn serialize_status(status: &TorStatus) -> NativeResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+
+    struct FakeTorService {
+        control_address: String,
+        connectivity_gate: Option<Arc<(Mutex<(usize, bool)>, Condvar)>>,
+        daemon_finished: bool,
+    }
+
+    impl TorServiceAdapter for FakeTorService {
+        fn control_address(&self) -> &str {
+            &self.control_address
+        }
+
+        fn get_connectivity(&self) -> Result<(NetworkLiveness, bool), TorErrors> {
+            if let Some((lock, changed)) = self.connectivity_gate.as_deref() {
+                let mut state = lock.lock().unwrap();
+                state.0 += 1;
+                changed.notify_all();
+                while state.0 > 1 && !state.1 {
+                    state = changed.wait(state).unwrap();
+                }
+            }
+            Ok((NetworkLiveness::Up, true))
+        }
+
+        fn is_daemon_finished(&self) -> bool {
+            self.daemon_finished
+        }
+
+        fn request_new_identity(&self) -> Result<(), TorErrors> {
+            Ok(())
+        }
+
+        fn create_hidden_service(
+            &mut self,
+            _param: TorHiddenServiceParam,
+        ) -> Result<tor::TorHiddenService, TorErrors> {
+            Err(TorErrors::BootStrapError("unused fake operation".into()))
+        }
+
+        fn delete_hidden_service(&mut self, _onion: String) -> Result<(), TorErrors> {
+            Ok(())
+        }
+
+        fn shutdown(&mut self) -> Result<(), TorErrors> {
+            Ok(())
+        }
+    }
+
+    fn fake_service() -> Box<dyn TorServiceAdapter> {
+        Box::new(FakeTorService {
+            control_address: "127.0.0.1:29051".to_string(),
+            connectivity_gate: None,
+            daemon_finished: false,
+        })
+    }
 
     #[test]
     fn validates_native_config_numbers() {
@@ -856,6 +1055,165 @@ mod tests {
                 },
                 ..
             }
+        ));
+    }
+
+    #[test]
+    fn identical_concurrent_starts_share_one_attempt() {
+        let manager: &'static TorManager = Box::leak(Box::new(TorManager::new()));
+        let config = TorConfig {
+            data_directory: "/tmp/react-native-nitro-tor-shared-start".to_string(),
+            socks_port: 29050,
+            bootstrap_timeout_ms: 45_000,
+        };
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let first_release = release.clone();
+        let first_config = config.clone();
+        let first = thread::spawn(move || {
+            start_with(manager, first_config, move |_observer, _cancellation| {
+                entered_tx.send(()).unwrap();
+                let (lock, changed) = &*first_release;
+                let mut released = lock.lock().unwrap();
+                while !*released {
+                    released = changed.wait(released).unwrap();
+                }
+                Ok(fake_service())
+            })
+        });
+        entered_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+
+        let second_config = config.clone();
+        let second = thread::spawn(move || {
+            start_with(manager, second_config, |_observer, _cancellation| {
+                panic!("a matching concurrent start must not launch another daemon")
+            })
+        });
+        thread::sleep(Duration::from_millis(50));
+        assert!(!second.is_finished());
+
+        let (lock, changed) = &*release;
+        *lock.lock().unwrap() = true;
+        changed.notify_all();
+
+        let first_status = first.join().unwrap().unwrap();
+        let second_status = second.join().unwrap().unwrap();
+        assert_eq!(first_status, second_status);
+        assert!(first_status.contains(r#""state":"running""#));
+        stop_with(manager).unwrap();
+    }
+
+    #[test]
+    fn conflicting_start_rejects_and_stop_cancels_the_active_attempt() {
+        let manager: &'static TorManager = Box::leak(Box::new(TorManager::new()));
+        let config = TorConfig {
+            data_directory: "/tmp/react-native-nitro-tor-cancel-start".to_string(),
+            socks_port: 29350,
+            bootstrap_timeout_ms: 45_000,
+        };
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let first_config = config.clone();
+        let first = thread::spawn(move || {
+            start_with(manager, first_config, move |_observer, cancellation| {
+                entered_tx.send(()).unwrap();
+                while !cancellation.load(Ordering::SeqCst) {
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(TorErrors::StartCancelled)
+            })
+        });
+        entered_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+
+        let conflict = start_with(
+            manager,
+            TorConfig {
+                socks_port: 29351,
+                ..config
+            },
+            |_observer, _cancellation| {
+                panic!("a conflicting start must reject before launching a daemon")
+            },
+        )
+        .unwrap_err();
+        assert!(conflict.to_string().contains("CONFIG_CONFLICT"));
+
+        stop_with(manager).unwrap();
+        let start_error = first.join().unwrap().unwrap_err();
+        assert!(start_error.to_string().contains("TOR_STOPPED"));
+        assert_eq!(get_status_with(manager).unwrap(), r#"{"state":"stopped"}"#);
+    }
+
+    #[test]
+    fn status_probe_does_not_block_the_stopping_transition() {
+        let manager: &'static TorManager = Box::leak(Box::new(TorManager::new()));
+        let config = TorConfig {
+            data_directory: "/tmp/react-native-nitro-tor-status-probe".to_string(),
+            socks_port: 29150,
+            bootstrap_timeout_ms: 45_000,
+        };
+        let gate = Arc::new((Mutex::new((0, false)), Condvar::new()));
+        let service_gate = gate.clone();
+        start_with(manager, config, move |_observer, _cancellation| {
+            Ok(Box::new(FakeTorService {
+                control_address: "127.0.0.1:29151".to_string(),
+                connectivity_gate: Some(service_gate),
+                daemon_finished: false,
+            }))
+        })
+        .unwrap();
+
+        let (status_tx, status_rx) = mpsc::channel();
+        manager.register_emitter(Arc::new(move |status| {
+            status_tx.send(status).unwrap();
+        }));
+        let status_thread = thread::spawn(move || get_status_with(manager));
+        let (lock, changed) = &*gate;
+        let mut state = lock.lock().unwrap();
+        while state.0 < 2 {
+            state = changed.wait(state).unwrap();
+        }
+        drop(state);
+
+        let stop_thread = thread::spawn(move || stop_with(manager));
+        let stopping = status_rx.recv_timeout(Duration::from_millis(100)).unwrap();
+        assert_eq!(stopping, r#"{"state":"stopping"}"#);
+
+        let mut state = lock.lock().unwrap();
+        state.1 = true;
+        changed.notify_all();
+        drop(state);
+        status_thread.join().unwrap().unwrap();
+        stop_thread.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn control_failure_marks_an_exited_daemon_failed() {
+        let manager: &'static TorManager = Box::leak(Box::new(TorManager::new()));
+        let config = TorConfig {
+            data_directory: "/tmp/react-native-nitro-tor-exited-daemon".to_string(),
+            socks_port: 29250,
+            bootstrap_timeout_ms: 45_000,
+        };
+        start_with(manager, config, |_observer, _cancellation| {
+            Ok(Box::new(FakeTorService {
+                control_address: "127.0.0.1:29251".to_string(),
+                connectivity_gate: None,
+                daemon_finished: true,
+            }))
+        })
+        .unwrap();
+
+        manager.handle_control_event(TorControlEvent::ControlConnectionFailed(
+            "connection closed".to_string(),
+        ));
+
+        let inner = manager.inner.lock().unwrap();
+        assert!(inner.cancellation.load(Ordering::SeqCst));
+        assert!(matches!(
+            &inner.status,
+            TorStatus::Failed {
+                error: TorErrorPayload { code, .. }
+            } if code == "CONTROL_CONNECTION_FAILED"
         ));
     }
 }
