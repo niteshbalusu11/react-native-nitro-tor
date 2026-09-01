@@ -5,16 +5,17 @@ edition.workspace = true
 
 [dependencies]
 anyhow = "1.0.99"
-craby = "0.1.0-rc.3"
+craby = "0.1.0-rc.8"
 cxx = { version = "1.0.190", features = ["c++17"] }
 tor.workspace = true
 logger.workspace = true
 once_cell = "1.20.3"
 serde = { version="1.0.217", features = ["derive"], default-features = false }
 serde_json = "1.0.138"
+tokio = { version = "1.4", features = ["macros", "time"] }
 
 [build-dependencies]
-craby_build = { version = "0.1.0-rc.3", features = ["cxx"] }
+craby_build = { version = "0.1.0-rc.8", features = ["cxx"] }
 
 [lib]
 name = "reactnativenitrotor"

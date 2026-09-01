@@ -1,333 +1,154 @@
 # react-native-nitro-tor
 
-A Tor Daemon and Onion Routing Client for React Native using pure C++ [Craby](https://craby.rs).
+Run a process-wide Tor daemon, make HTTP requests through it, and manage ephemeral v3 onion services from React Native. The native bridge is built with [Craby](https://craby.rs).
 
-## Features
-
-- Run a Tor daemon directly in your React Native application
-- Create and manage Tor hidden services
-- Make HTTP requests over the Tor network (GET, POST, PUT, DELETE)
-- Built with performance in mind using React Native's NitroModules
-- Cross-platform support for Android, iOS and macOS
+> `1.0.0-rc.1` is a breaking release. The pre-1.0 `RnTor` methods and numeric status values have been removed.
 
 ## Installation
 
 ```bash
-# Using npm
-npm install react-native-nitro-tor
-
-# Using yarn
 yarn add react-native-nitro-tor
+cd ios && pod install
 ```
 
+The library supports iOS and Android. It includes arm64, x86_64, x86, and armeabi-v7a Android binaries and an iOS XCFramework.
 
-## Platform Support
+## Start and observe Tor
 
-| Platform | Support                     |
-| -------- | --------------------------- |
-| iOS      | ✅                          |
-| macOS    | ✅                          |
-| Android  | ✅ (arm64-v8a, x86_64, x86, armeabi-v7a) |
+The app owns the data-directory choice. Starting resolves only after Tor reaches 100% bootstrap.
 
-## Usage
+```ts
+import { Tor, TorError, type TorStatus } from 'react-native-nitro-tor';
 
-### Basic Example
-
-```typescript
-import { RnTor } from 'react-native-nitro-tor';
-
-// Start Tor with a hidden service
-const startTor = async () => {
-  const result = await RnTor.startTorIfNotRunning({
-    data_dir: '/path/to/tor/data',
-    socks_port: 9050,
-    target_port: 8080,
-    timeout_ms: 60000,
-  });
-
-  if (result.is_success) {
-    console.log(`Tor started successfully!`);
-    console.log(`Onion address: ${result.onion_address}`);
-    console.log(`Control: ${result.control}`);
-  } else {
-    console.error(`Failed to start Tor: ${result.error_message}`);
+const unsubscribe = Tor.daemon.subscribe((status: TorStatus) => {
+  if (status.state === 'starting') {
+    console.log(status.bootstrap.progress, status.bootstrap.summary);
   }
-};
+});
 
-// Shut down the Tor service
-const shutdown = async () => {
-  const result = await RnTor.shutdownService();
-  console.log(`Tor shutdown ${result ? 'successful' : 'failed'}`);
-};
+try {
+  const running = await Tor.daemon.start({
+    dataDirectory: '/path/chosen/by/the/app',
+    socksPort: 9050,
+    bootstrapTimeoutMs: 60_000,
+  });
+  console.log(running.socksAddress, running.connectivity);
+} catch (error) {
+  if (error instanceof TorError) {
+    console.error(error.code, error.message);
+  }
+}
+
+unsubscribe();
+await Tor.daemon.stop();
 ```
 
-### HTTP Methods Over Tor
+An identical concurrent or repeated `start` shares the current daemon. A different configuration rejects with `CONFIG_CONFLICT`. `stop` is idempotent and cancels startup and in-flight HTTP requests.
 
-```typescript
-import { RnTor } from 'react-native-nitro-tor';
+### Status
 
-// Make an HTTP GET request through Tor
-const makeGetRequest = async () => {
-  const result = await RnTor.httpGet({
-    url: 'http://example.com',
-    headers: '',
-    timeout_ms: 2000,
-  });
-  console.log(`Status code: ${result.status_code}`);
-  console.log(`Response body: ${result.body}`);
-  if (result.error) {
-    console.error(`Error: ${result.error}`);
-  }
-};
+`Tor.daemon.getStatus()` and subscriptions return a discriminated union:
 
-// Make an HTTP POST request through Tor
-const makePostRequest = async () => {
-  const result = await RnTor.httpPost({
-    url: 'http://httpbin.org/post',
-    body: '{"test":"data"}',
-    headers: '{"Content-Type":"application/json"}',
-    timeout_ms: 2000,
-  });
-  console.log(`Status code: ${result.status_code}`);
-  console.log(`Response body: ${result.body}`);
-  if (result.error) {
-    console.error(`Error: ${result.error}`);
-  }
-};
-
-// Make an HTTP PUT request through Tor
-const makePutRequest = async () => {
-  const result = await RnTor.httpPut({
-    url: 'http://httpbin.org/put',
-    body: '{"updated":"value"}',
-    headers: '{"Content-Type":"application/json"}',
-    timeout_ms: 2000,
-  });
-  console.log(`Status code: ${result.status_code}`);
-  console.log(`Response body: ${result.body}`);
-  if (result.error) {
-    console.error(`Error: ${result.error}`);
-  }
-};
-
-// Make an HTTP DELETE request through Tor
-const makeDeleteRequest = async () => {
-  const result = await RnTor.httpDelete({
-    url: 'http://httpbin.org/delete',
-    headers: '{"Content-Type":"application/json"}',
-    timeout_ms: 2000,
-  });
-  console.log(`Status code: ${result.status_code}`);
-  console.log(`Response body: ${result.body}`);
-  if (result.error) {
-    console.error(`Error: ${result.error}`);
-  }
-};
+```ts
+type TorStatus =
+  | { state: 'stopped' }
+  | {
+      state: 'starting';
+      bootstrap: {
+        progress: number;
+        tag: string;
+        summary: string;
+        warning?: string;
+      };
+    }
+  | {
+      state: 'running';
+      socksAddress: string;
+      connectivity: {
+        network: 'up' | 'down' | 'unknown';
+        circuitEstablished: boolean;
+      };
+    }
+  | { state: 'stopping' }
+  | { state: 'failed'; error: { code: string; message: string } };
 ```
 
-### Advanced Usage
+The facade refreshes native status when the app returns to the foreground. Listener failures are isolated from other listeners.
 
-```typescript
-import { RnTor } from 'react-native-nitro-tor';
+Request a new circuit identity after Tor is running:
 
-// Initialize Tor service
-const initTor = async () => {
-  const initialized = await RnTor.initTorService({
-    socks_port: 9050,
-    data_dir: '/path/to/tor/data',
-    timeout_ms: 60000,
-  });
-
-  if (initialized) {
-    console.log('Tor service initialized successfully');
-    return true;
-  }
-  return false;
-};
-
-// Create a hidden service
-const createService = async () => {
-  const serviceResult = await RnTor.createHiddenService({
-    port: 9055,
-    target_port: 9056,
-  });
-
-  if (serviceResult.is_success) {
-    console.log(`Created hidden service at: ${serviceResult.onion_address}`);
-  }
-};
-
-// Get the current status of the Tor service.
-// 0: Tor is in the process of starting.
-// 1: Tor is running.
-// 2: Stopped/Not running/error.
-
-// Check service status
-const checkStatus = async () => {
-  const status = await RnTor.getServiceStatus();
-  console.log(`Current Tor service status: ${status}`);
-};
-
-// Shutdown Tor service
-const shutdown = async () => {
-  const result = await RnTor.shutdownService();
-  console.log(`Tor shutdown ${result ? 'successful' : 'failed'}`);
-};
+```ts
+await Tor.daemon.requestNewIdentity();
 ```
 
-## API Reference
+Tor may rate-limit how quickly a new identity takes effect. The promise means the control command was accepted.
 
-### Types
+## HTTP over Tor
 
-```typescript
-type ByteArray64 = number[];
+HTTP status errors resolve normally. Transport failures, timeouts, and daemon shutdown reject with `TorError`.
 
-interface TorConfig {
-  socks_port: number;
-  data_dir: string;
-  timeout_ms: number;
-}
+```ts
+const response = await Tor.http.request({
+  url: 'http://example.onion/resource',
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ hello: 'tor' }),
+  timeoutMs: 30_000,
+});
 
-interface HiddenServiceParams {
-  port: number;
-  target_port: number;
-}
-
-interface StartTorParams {
-  data_dir: string;
-  socks_port: number;
-  target_port: number;
-  timeout_ms: number;
-}
-
-interface StartTorResponse {
-  is_success: boolean;
-  onion_address: string;
-  control: string;
-  error_message: string;
-}
-
-interface HiddenServiceResponse {
-  is_success: boolean;
-  onion_address: string;
-  control: string;
-}
-
-interface HttpGetParams {
-  url: string;
-  headers: string;
-  timeout_ms: number;
-}
-
-interface HttpPostParams {
-  url: string;
-  body: string;
-  headers: string;
-  timeout_ms: number;
-}
-
-interface HttpPutParams {
-  url: string;
-  body: string;
-  headers: string;
-  timeout_ms: number;
-}
-
-interface HttpDeleteParams {
-  url: string;
-  headers: string;
-  timeout_ms: number;
-}
-
-interface HttpResponse {
-  status_code: number;
-  body: string;
-  error: string;
-}
+console.log(response.statusCode);
+console.log(response.headers); // lowercase names, string[] values
+console.log(response.body);
 ```
 
-### Methods
+Supported methods are `GET`, `POST`, `PUT`, `DELETE`, `HEAD`, and `OPTIONS`. Set `allowInvalidCertificates: true` only when the caller explicitly intends to accept an invalid TLS chain.
 
-- `initTorService(config: TorConfig): Promise<boolean>`
-  Initialize the Tor service with the given configuration.
+## Ephemeral onion services
 
-- `createHiddenService(params: HiddenServiceParams): Promise<HiddenServiceResponse>`
-  Create a new Tor hidden service with the specified parameters.
+Private keys are caller-owned. Omitting the key creates and returns a new 64-byte key; pass it again to recreate the same address in a future daemon session.
 
-- `startTorIfNotRunning(params: StartTorParams): Promise<StartTorResponse>`
-  Start the Tor daemon with a hidden service if it's not already running. This is the recommended method for most use cases.
+```ts
+const service = await Tor.hiddenServices.create({
+  virtualPort: 80,
+  targetPort: 8080,
+});
 
-- `getServiceStatus(): Promise<number>`
-  Get the current status of the Tor service.
-  `0`: Tor is in the process of starting.
-  `1`: Tor is running.
-  `2`: Stopped/Not running/error.
+console.log(service.onionAddress);
+persistSecurely(service.privateKey);
 
-- `deleteHiddenService(onionAddress: string): Promise<boolean>`
-  Delete an existing hidden service by its onion address.
-
-- `shutdownService(): Promise<boolean>`
-  Completely shut down the Tor service.
-
-- `httpGet(params: HttpGetParams): Promise<HttpResponse>`
-  Make an HTTP GET request through the Tor network.
-
-- `httpPost(params: HttpPostParams): Promise<HttpResponse>`
-  Make an HTTP POST request through the Tor network.
-
-- `httpPut(params: HttpPutParams): Promise<HttpResponse>`
-  Make an HTTP PUT request through the Tor network.
-
-- `httpDelete(params: HttpDeleteParams): Promise<HttpResponse>`
-  Make an HTTP DELETE request through the Tor network.
-
-## Binary Files
-
-- iOS and MacOS: Binaries are located in the root of the project as `Tor.xcframework`
-- Android: Binaries are located in `android/src/main/jniLibs`
-
-## Architecture Support
-
-- Android: arm64-v8a, x86_64, x86
-
-## Running the example app
-
+await Tor.hiddenServices.remove(service.onionAddress);
 ```
-# Install dependencies
+
+`remove` is idempotent for an address that is not active in this process. Active services close when the daemon stops. The library does not persist or automatically restore private keys.
+
+## Errors
+
+All operational failures reject with `TorError`, which exposes a stable `code` and a human-readable `message`. Common codes include:
+
+- `INVALID_CONFIG`, `CONFIG_CONFLICT`, `BOOTSTRAP_TIMEOUT`, `TOR_START_FAILED`
+- `NOT_RUNNING`, `TOR_STOPPED`, `CONTROL_CONNECTION_FAILED`
+- `HTTP_TIMEOUT`, `HTTP_TRANSPORT_ERROR`
+- `INVALID_PRIVATE_KEY`, `HIDDEN_SERVICE_EXISTS`, `HIDDEN_SERVICE_ERROR`
+
+## Running the example
+
+```bash
 yarn install
-
-# Generate native interfaces
-yarn nitrogen
-
-# Start metro
+yarn crabygen codegen
 yarn example start
+```
 
-# For android
-yarn example android
+Build the iOS example with Xcode or:
 
-# For ios
-yarn example ios
-
-# IF ABOVE STEP FOR IOS THROWS ERRORS, you can also try:
-cd example/ios && pod install
-
-- Open the NitroTorExample.xcworkspace inside of xcode.
-- Drag the Tor.xcframework from the root of the project to xcode project and select the "Copy files to destination" option.
-- Build and run from inside of xcode.
+```bash
+xcodebuild build \
+  -workspace example/ios/ReactNativeNitroTorExample.xcworkspace \
+  -scheme ReactNativeNitroTorExample \
+  -configuration Debug \
+  -sdk iphonesimulator \
+  ARCHS=arm64
 ```
 
 ## License
 
 MIT
-
-## Credits
-
-This project builds upon the work of:
-
-- [react-native-tor](https://github.com/Sifir-io/react-native-tor)
-- [sifir-rs-sdk](https://github.com/Sifir-io/sifir-rs-sdk/)
-- [libtor](https://github.com/MagicalBitcoin/libtor)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.

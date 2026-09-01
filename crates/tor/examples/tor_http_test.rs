@@ -35,6 +35,7 @@ fn main() {
         headers: None,
         body: None,
         timeout_ms: Some(30000), // 30 seconds timeout
+        trust_invalid_certs: Some(false),
     };
 
     let socks_proxy = format!("127.0.0.1:{}", owned_node.socks_port);
@@ -43,10 +44,6 @@ fn main() {
         Ok(response) => {
             println!("GET Request Status: {}", response.status_code);
             println!("GET Response Body: {:?}", response.body);
-
-            if let Some(error) = response.error {
-                println!("Error: {}", error);
-            }
         }
         Err(e) => {
             println!("GET Request failed: {:?}", e);
@@ -60,12 +57,12 @@ fn main() {
         headers: None,
         body: None,
         timeout_ms: Some(30000),
+        trust_invalid_certs: Some(false),
     };
 
     match make_http_request(onion_get_params, socks_proxy.clone()) {
         Ok(response) => {
             println!("Onion GET Status: {}", response.status_code);
-            println!("Onion GET Error: {:?}", response.error);
             println!(
                 "Onion GET Body Prefix: {:?}",
                 &response.body.chars().take(120).collect::<String>()
@@ -88,6 +85,7 @@ fn main() {
         headers: Some(headers),
         body: Some(r#"{"test": "data", "from": "tor"}"#.to_string()),
         timeout_ms: Some(30000), // 30 seconds timeout
+        trust_invalid_certs: Some(false),
     };
 
     match make_http_request(post_params, socks_proxy) {
@@ -98,13 +96,7 @@ fn main() {
                 response.body.contains("\"test\": \"data\"")
             );
 
-            if let Some(error) = response.error {
-                println!("Error: {}", error);
-            } else {
-                // Print a portion of the response body
-
-                println!("Response Body: {:?}", response.body);
-            }
+            println!("Response Body: {:?}", response.body);
         }
         Err(e) => {
             println!("POST Request failed: {:?}", e);

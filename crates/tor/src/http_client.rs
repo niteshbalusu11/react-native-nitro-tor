@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::TorErrors;
+use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, Proxy, RequestBuilder};
 use serde::{Deserialize, Serialize};
 
@@ -20,10 +21,11 @@ pub enum HttpMethod {
 /// HTTP response structure compatible with FFI
 #[repr(C)]
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HttpResponse {
     pub status_code: u16,
+    pub headers: HashMap<String, Vec<String>>,
     pub body: String,
-    pub error: Option<String>,
 }
 
 /// HTTP request parameters
@@ -45,6 +47,17 @@ pub struct HttpRequestParams {
 
 fn build_socks_proxy_url(socks_proxy: &str) -> String {
     format!("socks5h://{}", socks_proxy)
+}
+
+fn collect_response_headers(headers: &HeaderMap) -> HashMap<String, Vec<String>> {
+    let mut result: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, value) in headers {
+        result
+            .entry(name.as_str().to_ascii_lowercase())
+            .or_default()
+            .push(value.to_str().unwrap_or_default().to_string());
+    }
+    result
 }
 
 /// Makes an HTTP request through the Tor SOCKS proxy using reqwest
@@ -93,28 +106,15 @@ pub async fn make_http_request_async(
     }
 
     // Send request
-    match req_builder.send().await {
-        Ok(response) => {
-            let status = response.status().as_u16();
-            match response.text().await {
-                Ok(body) => Ok(HttpResponse {
-                    status_code: status,
-                    body,
-                    error: None,
-                }),
-                Err(e) => Ok(HttpResponse {
-                    status_code: status,
-                    body: String::new(),
-                    error: Some(format!("Failed to read response body: {}", e)),
-                }),
-            }
-        }
-        Err(e) => Ok(HttpResponse {
-            status_code: 0,
-            body: String::new(),
-            error: Some(format!("Request failed: {}", e)),
-        }),
-    }
+    let response = req_builder.send().await?;
+    let status_code = response.status().as_u16();
+    let headers = collect_response_headers(response.headers());
+    let body = response.text().await?;
+    Ok(HttpResponse {
+        status_code,
+        headers,
+        body,
+    })
 }
 
 /// Synchronous wrapper for make_http_request_async
@@ -124,21 +124,46 @@ pub fn make_http_request(
 ) -> Result<HttpResponse, TorErrors> {
     use crate::ensure_runtime;
 
-    ensure_runtime()
-        .lock()
-        .unwrap()
-        .block_on(async { make_http_request_async(params, socks_proxy).await })
+    ensure_runtime().block_on(async { make_http_request_async(params, socks_proxy).await })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::build_socks_proxy_url;
+    use super::{build_socks_proxy_url, collect_response_headers};
+    use reqwest::header::{HeaderMap, HeaderValue, SET_COOKIE};
+    use std::collections::HashMap;
 
     #[test]
     fn builds_remote_dns_socks_proxy_url() {
         assert_eq!(
             build_socks_proxy_url("127.0.0.1:9050"),
             "socks5h://127.0.0.1:9050"
+        );
+    }
+
+    #[test]
+    fn collects_lowercase_multi_value_response_headers() {
+        let mut headers = HeaderMap::new();
+        headers.append(SET_COOKIE, HeaderValue::from_static("a=1"));
+        headers.append(SET_COOKIE, HeaderValue::from_static("b=2"));
+
+        assert_eq!(
+            collect_response_headers(&headers).get("set-cookie"),
+            Some(&vec!["a=1".to_string(), "b=2".to_string()])
+        );
+    }
+
+    #[test]
+    fn serializes_the_public_response_shape() {
+        let response = super::HttpResponse {
+            status_code: 404,
+            headers: HashMap::new(),
+            body: "missing".to_string(),
+        };
+
+        assert_eq!(
+            serde_json::to_string(&response).unwrap(),
+            r#"{"statusCode":404,"headers":{},"body":"missing"}"#
         );
     }
 }

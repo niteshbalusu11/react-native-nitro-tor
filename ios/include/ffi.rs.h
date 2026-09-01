@@ -1,13 +1,22 @@
 #pragma once
+#include "CrabySignals.h"
+#include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
+#include <iterator>
 #include <new>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
 #if __cplusplus >= 201703L
 #include <string_view>
+#endif
+#if __cplusplus >= 202002L
+#include <ranges>
 #endif
 
 #ifdef __clang__
@@ -19,12 +28,23 @@ namespace rust {
 inline namespace cxxbridge1 {
 // #include "rust/cxx.h"
 
+#ifndef CXXBRIDGE1_PANIC
+#define CXXBRIDGE1_PANIC
+template <typename Exception>
+void panic [[noreturn]] (const char *msg);
+#endif // CXXBRIDGE1_PANIC
+
 struct unsafe_bitcopy_t;
 
 namespace {
 template <typename T>
 class impl;
 } // namespace
+
+template <typename T>
+::std::size_t size_of();
+template <typename T>
+::std::size_t align_of();
 
 #ifndef CXXBRIDGE1_RUST_STRING
 #define CXXBRIDGE1_RUST_STRING
@@ -146,6 +166,318 @@ private:
   std::array<std::uintptr_t, 2> repr;
 };
 #endif // CXXBRIDGE1_RUST_STR
+
+#ifndef CXXBRIDGE1_RUST_SLICE
+#define CXXBRIDGE1_RUST_SLICE
+namespace detail {
+template <bool>
+struct copy_assignable_if {};
+
+template <>
+struct copy_assignable_if<false> {
+  copy_assignable_if() noexcept = default;
+  copy_assignable_if(const copy_assignable_if &) noexcept = default;
+  copy_assignable_if &operator=(const copy_assignable_if &) & noexcept = delete;
+  copy_assignable_if &operator=(copy_assignable_if &&) & noexcept = default;
+};
+} // namespace detail
+
+template <typename T>
+class Slice final
+    : private detail::copy_assignable_if<std::is_const<T>::value> {
+public:
+  using value_type = T;
+
+  Slice() noexcept;
+  Slice(T *, std::size_t count) noexcept;
+
+  template <typename C>
+  explicit Slice(C &c) : Slice(c.data(), c.size()) {}
+
+  Slice &operator=(const Slice<T> &) & noexcept = default;
+  Slice &operator=(Slice<T> &&) & noexcept = default;
+
+  T *data() const noexcept;
+  std::size_t size() const noexcept;
+  std::size_t length() const noexcept;
+  bool empty() const noexcept;
+
+  T &operator[](std::size_t n) const noexcept;
+  T &at(std::size_t n) const;
+  T &front() const noexcept;
+  T &back() const noexcept;
+
+  Slice(const Slice<T> &) noexcept = default;
+  ~Slice() noexcept = default;
+
+  class iterator;
+  iterator begin() const noexcept;
+  iterator end() const noexcept;
+
+  void swap(Slice &) noexcept;
+
+private:
+  class uninit;
+  Slice(uninit) noexcept;
+  friend impl<Slice>;
+  friend void sliceInit(void *, const void *, std::size_t) noexcept;
+  friend void *slicePtr(const void *) noexcept;
+  friend std::size_t sliceLen(const void *) noexcept;
+
+  std::array<std::uintptr_t, 2> repr;
+};
+
+#ifdef __cpp_deduction_guides
+template <typename C>
+explicit Slice(C &c)
+    -> Slice<std::remove_reference_t<decltype(*std::declval<C>().data())>>;
+#endif // __cpp_deduction_guides
+
+template <typename T>
+class Slice<T>::iterator final {
+public:
+#if __cplusplus >= 202002L
+  using iterator_category = std::contiguous_iterator_tag;
+#else
+  using iterator_category = std::random_access_iterator_tag;
+#endif
+  using value_type = T;
+  using difference_type = std::ptrdiff_t;
+  using pointer = typename std::add_pointer<T>::type;
+  using reference = typename std::add_lvalue_reference<T>::type;
+
+  reference operator*() const noexcept;
+  pointer operator->() const noexcept;
+  reference operator[](difference_type) const noexcept;
+
+  iterator &operator++() noexcept;
+  iterator operator++(int) noexcept;
+  iterator &operator--() noexcept;
+  iterator operator--(int) noexcept;
+
+  iterator &operator+=(difference_type) noexcept;
+  iterator &operator-=(difference_type) noexcept;
+  iterator operator+(difference_type) const noexcept;
+  friend inline iterator operator+(difference_type lhs, iterator rhs) noexcept {
+    return rhs + lhs;
+  }
+  iterator operator-(difference_type) const noexcept;
+  difference_type operator-(const iterator &) const noexcept;
+
+  bool operator==(const iterator &) const noexcept;
+  bool operator!=(const iterator &) const noexcept;
+  bool operator<(const iterator &) const noexcept;
+  bool operator<=(const iterator &) const noexcept;
+  bool operator>(const iterator &) const noexcept;
+  bool operator>=(const iterator &) const noexcept;
+
+private:
+  friend class Slice;
+  void *pos;
+  std::size_t stride;
+};
+
+#if __cplusplus >= 202002L
+static_assert(std::ranges::contiguous_range<rust::Slice<const uint8_t>>);
+static_assert(std::contiguous_iterator<rust::Slice<const uint8_t>::iterator>);
+#endif
+
+template <typename T>
+Slice<T>::Slice() noexcept {
+  sliceInit(this, reinterpret_cast<void *>(align_of<T>()), 0);
+}
+
+template <typename T>
+Slice<T>::Slice(T *s, std::size_t count) noexcept {
+  assert(s != nullptr || count == 0);
+  sliceInit(this,
+            s == nullptr && count == 0
+                ? reinterpret_cast<void *>(align_of<T>())
+                : const_cast<typename std::remove_const<T>::type *>(s),
+            count);
+}
+
+template <typename T>
+T *Slice<T>::data() const noexcept {
+  return reinterpret_cast<T *>(slicePtr(this));
+}
+
+template <typename T>
+std::size_t Slice<T>::size() const noexcept {
+  return sliceLen(this);
+}
+
+template <typename T>
+std::size_t Slice<T>::length() const noexcept {
+  return this->size();
+}
+
+template <typename T>
+bool Slice<T>::empty() const noexcept {
+  return this->size() == 0;
+}
+
+template <typename T>
+T &Slice<T>::operator[](std::size_t n) const noexcept {
+  assert(n < this->size());
+  auto ptr = static_cast<char *>(slicePtr(this)) + size_of<T>() * n;
+  return *reinterpret_cast<T *>(ptr);
+}
+
+template <typename T>
+T &Slice<T>::at(std::size_t n) const {
+  if (n >= this->size()) {
+    panic<std::out_of_range>("rust::Slice index out of range");
+  }
+  return (*this)[n];
+}
+
+template <typename T>
+T &Slice<T>::front() const noexcept {
+  assert(!this->empty());
+  return (*this)[0];
+}
+
+template <typename T>
+T &Slice<T>::back() const noexcept {
+  assert(!this->empty());
+  return (*this)[this->size() - 1];
+}
+
+template <typename T>
+typename Slice<T>::iterator::reference
+Slice<T>::iterator::operator*() const noexcept {
+  return *static_cast<T *>(this->pos);
+}
+
+template <typename T>
+typename Slice<T>::iterator::pointer
+Slice<T>::iterator::operator->() const noexcept {
+  return static_cast<T *>(this->pos);
+}
+
+template <typename T>
+typename Slice<T>::iterator::reference Slice<T>::iterator::operator[](
+    typename Slice<T>::iterator::difference_type n) const noexcept {
+  auto ptr = static_cast<char *>(this->pos) + this->stride * n;
+  return *reinterpret_cast<T *>(ptr);
+}
+
+template <typename T>
+typename Slice<T>::iterator &Slice<T>::iterator::operator++() noexcept {
+  this->pos = static_cast<char *>(this->pos) + this->stride;
+  return *this;
+}
+
+template <typename T>
+typename Slice<T>::iterator Slice<T>::iterator::operator++(int) noexcept {
+  auto ret = iterator(*this);
+  this->pos = static_cast<char *>(this->pos) + this->stride;
+  return ret;
+}
+
+template <typename T>
+typename Slice<T>::iterator &Slice<T>::iterator::operator--() noexcept {
+  this->pos = static_cast<char *>(this->pos) - this->stride;
+  return *this;
+}
+
+template <typename T>
+typename Slice<T>::iterator Slice<T>::iterator::operator--(int) noexcept {
+  auto ret = iterator(*this);
+  this->pos = static_cast<char *>(this->pos) - this->stride;
+  return ret;
+}
+
+template <typename T>
+typename Slice<T>::iterator &Slice<T>::iterator::operator+=(
+    typename Slice<T>::iterator::difference_type n) noexcept {
+  this->pos = static_cast<char *>(this->pos) + this->stride * n;
+  return *this;
+}
+
+template <typename T>
+typename Slice<T>::iterator &Slice<T>::iterator::operator-=(
+    typename Slice<T>::iterator::difference_type n) noexcept {
+  this->pos = static_cast<char *>(this->pos) - this->stride * n;
+  return *this;
+}
+
+template <typename T>
+typename Slice<T>::iterator Slice<T>::iterator::operator+(
+    typename Slice<T>::iterator::difference_type n) const noexcept {
+  auto ret = iterator(*this);
+  ret.pos = static_cast<char *>(this->pos) + this->stride * n;
+  return ret;
+}
+
+template <typename T>
+typename Slice<T>::iterator Slice<T>::iterator::operator-(
+    typename Slice<T>::iterator::difference_type n) const noexcept {
+  auto ret = iterator(*this);
+  ret.pos = static_cast<char *>(this->pos) - this->stride * n;
+  return ret;
+}
+
+template <typename T>
+typename Slice<T>::iterator::difference_type
+Slice<T>::iterator::operator-(const iterator &other) const noexcept {
+  auto diff = std::distance(static_cast<char *>(other.pos),
+                            static_cast<char *>(this->pos));
+  return diff / static_cast<typename Slice<T>::iterator::difference_type>(
+                    this->stride);
+}
+
+template <typename T>
+bool Slice<T>::iterator::operator==(const iterator &other) const noexcept {
+  return this->pos == other.pos;
+}
+
+template <typename T>
+bool Slice<T>::iterator::operator!=(const iterator &other) const noexcept {
+  return this->pos != other.pos;
+}
+
+template <typename T>
+bool Slice<T>::iterator::operator<(const iterator &other) const noexcept {
+  return this->pos < other.pos;
+}
+
+template <typename T>
+bool Slice<T>::iterator::operator<=(const iterator &other) const noexcept {
+  return this->pos <= other.pos;
+}
+
+template <typename T>
+bool Slice<T>::iterator::operator>(const iterator &other) const noexcept {
+  return this->pos > other.pos;
+}
+
+template <typename T>
+bool Slice<T>::iterator::operator>=(const iterator &other) const noexcept {
+  return this->pos >= other.pos;
+}
+
+template <typename T>
+typename Slice<T>::iterator Slice<T>::begin() const noexcept {
+  iterator it;
+  it.pos = slicePtr(this);
+  it.stride = size_of<T>();
+  return it;
+}
+
+template <typename T>
+typename Slice<T>::iterator Slice<T>::end() const noexcept {
+  iterator it = this->begin();
+  it.pos = static_cast<char *>(it.pos) + it.stride * this->size();
+  return it;
+}
+
+template <typename T>
+void Slice<T>::swap(Slice &rhs) noexcept {
+  std::swap(*this, rhs);
+}
+#endif // CXXBRIDGE1_RUST_SLICE
 
 #ifndef CXXBRIDGE1_RUST_BOX
 #define CXXBRIDGE1_RUST_BOX
@@ -303,6 +635,251 @@ template <typename T>
 Box<T>::Box(uninit) noexcept {}
 #endif // CXXBRIDGE1_RUST_BOX
 
+#ifndef CXXBRIDGE1_RUST_BITCOPY_T
+#define CXXBRIDGE1_RUST_BITCOPY_T
+struct unsafe_bitcopy_t final {
+  explicit unsafe_bitcopy_t() = default;
+};
+#endif // CXXBRIDGE1_RUST_BITCOPY_T
+
+#ifndef CXXBRIDGE1_RUST_VEC
+#define CXXBRIDGE1_RUST_VEC
+template <typename T>
+class Vec final {
+public:
+  using value_type = T;
+
+  Vec() noexcept;
+  Vec(std::initializer_list<T>);
+  Vec(const Vec &);
+  Vec(Vec &&) noexcept;
+  ~Vec() noexcept;
+
+  Vec &operator=(Vec &&) & noexcept;
+  Vec &operator=(const Vec &) &;
+
+  std::size_t size() const noexcept;
+  bool empty() const noexcept;
+  const T *data() const noexcept;
+  T *data() noexcept;
+  std::size_t capacity() const noexcept;
+
+  const T &operator[](std::size_t n) const noexcept;
+  const T &at(std::size_t n) const;
+  const T &front() const noexcept;
+  const T &back() const noexcept;
+
+  T &operator[](std::size_t n) noexcept;
+  T &at(std::size_t n);
+  T &front() noexcept;
+  T &back() noexcept;
+
+  void reserve(std::size_t new_cap);
+  void push_back(const T &value);
+  void push_back(T &&value);
+  template <typename... Args>
+  void emplace_back(Args &&...args);
+  void truncate(std::size_t len);
+  void clear();
+
+  using iterator = typename Slice<T>::iterator;
+  iterator begin() noexcept;
+  iterator end() noexcept;
+
+  using const_iterator = typename Slice<const T>::iterator;
+  const_iterator begin() const noexcept;
+  const_iterator end() const noexcept;
+  const_iterator cbegin() const noexcept;
+  const_iterator cend() const noexcept;
+
+  void swap(Vec &) noexcept;
+
+  Vec(unsafe_bitcopy_t, const Vec &) noexcept;
+
+private:
+  void reserve_total(std::size_t new_cap) noexcept;
+  void set_len(std::size_t len) noexcept;
+  void drop() noexcept;
+
+  friend void swap(Vec &lhs, Vec &rhs) noexcept { lhs.swap(rhs); }
+
+  std::array<std::uintptr_t, 3> repr;
+};
+
+template <typename T>
+Vec<T>::Vec(std::initializer_list<T> init) : Vec{} {
+  this->reserve_total(init.size());
+  std::move(init.begin(), init.end(), std::back_inserter(*this));
+}
+
+template <typename T>
+Vec<T>::Vec(const Vec &other) : Vec() {
+  this->reserve_total(other.size());
+  std::copy(other.begin(), other.end(), std::back_inserter(*this));
+}
+
+template <typename T>
+Vec<T>::Vec(Vec &&other) noexcept : repr(other.repr) {
+  new (&other) Vec();
+}
+
+template <typename T>
+Vec<T>::~Vec() noexcept {
+  this->drop();
+}
+
+template <typename T>
+Vec<T> &Vec<T>::operator=(Vec &&other) & noexcept {
+  this->drop();
+  this->repr = other.repr;
+  new (&other) Vec();
+  return *this;
+}
+
+template <typename T>
+Vec<T> &Vec<T>::operator=(const Vec &other) & {
+  if (this != &other) {
+    this->drop();
+    new (this) Vec(other);
+  }
+  return *this;
+}
+
+template <typename T>
+bool Vec<T>::empty() const noexcept {
+  return this->size() == 0;
+}
+
+template <typename T>
+T *Vec<T>::data() noexcept {
+  return const_cast<T *>(const_cast<const Vec<T> *>(this)->data());
+}
+
+template <typename T>
+const T &Vec<T>::operator[](std::size_t n) const noexcept {
+  assert(n < this->size());
+  auto data = reinterpret_cast<const char *>(this->data());
+  return *reinterpret_cast<const T *>(data + n * size_of<T>());
+}
+
+template <typename T>
+const T &Vec<T>::at(std::size_t n) const {
+  if (n >= this->size()) {
+    panic<std::out_of_range>("rust::Vec index out of range");
+  }
+  return (*this)[n];
+}
+
+template <typename T>
+const T &Vec<T>::front() const noexcept {
+  assert(!this->empty());
+  return (*this)[0];
+}
+
+template <typename T>
+const T &Vec<T>::back() const noexcept {
+  assert(!this->empty());
+  return (*this)[this->size() - 1];
+}
+
+template <typename T>
+T &Vec<T>::operator[](std::size_t n) noexcept {
+  assert(n < this->size());
+  auto data = reinterpret_cast<char *>(this->data());
+  return *reinterpret_cast<T *>(data + n * size_of<T>());
+}
+
+template <typename T>
+T &Vec<T>::at(std::size_t n) {
+  if (n >= this->size()) {
+    panic<std::out_of_range>("rust::Vec index out of range");
+  }
+  return (*this)[n];
+}
+
+template <typename T>
+T &Vec<T>::front() noexcept {
+  assert(!this->empty());
+  return (*this)[0];
+}
+
+template <typename T>
+T &Vec<T>::back() noexcept {
+  assert(!this->empty());
+  return (*this)[this->size() - 1];
+}
+
+template <typename T>
+void Vec<T>::reserve(std::size_t new_cap) {
+  this->reserve_total(new_cap);
+}
+
+template <typename T>
+void Vec<T>::push_back(const T &value) {
+  this->emplace_back(value);
+}
+
+template <typename T>
+void Vec<T>::push_back(T &&value) {
+  this->emplace_back(std::move(value));
+}
+
+template <typename T>
+template <typename... Args>
+void Vec<T>::emplace_back(Args &&...args) {
+  auto size = this->size();
+  this->reserve_total(size + 1);
+  ::new (reinterpret_cast<T *>(reinterpret_cast<char *>(this->data()) +
+                               size * size_of<T>()))
+      T(std::forward<Args>(args)...);
+  this->set_len(size + 1);
+}
+
+template <typename T>
+void Vec<T>::clear() {
+  this->truncate(0);
+}
+
+template <typename T>
+typename Vec<T>::iterator Vec<T>::begin() noexcept {
+  return Slice<T>(this->data(), this->size()).begin();
+}
+
+template <typename T>
+typename Vec<T>::iterator Vec<T>::end() noexcept {
+  return Slice<T>(this->data(), this->size()).end();
+}
+
+template <typename T>
+typename Vec<T>::const_iterator Vec<T>::begin() const noexcept {
+  return this->cbegin();
+}
+
+template <typename T>
+typename Vec<T>::const_iterator Vec<T>::end() const noexcept {
+  return this->cend();
+}
+
+template <typename T>
+typename Vec<T>::const_iterator Vec<T>::cbegin() const noexcept {
+  return Slice<const T>(this->data(), this->size()).begin();
+}
+
+template <typename T>
+typename Vec<T>::const_iterator Vec<T>::cend() const noexcept {
+  return Slice<const T>(this->data(), this->size()).end();
+}
+
+template <typename T>
+void Vec<T>::swap(Vec &rhs) noexcept {
+  using std::swap;
+  swap(this->repr, rhs.repr);
+}
+
+template <typename T>
+Vec<T>::Vec(unsafe_bitcopy_t, const Vec &bits) noexcept : repr(bits.repr) {}
+#endif // CXXBRIDGE1_RUST_VEC
+
 #ifndef CXXBRIDGE1_RUST_OPAQUE
 #define CXXBRIDGE1_RUST_OPAQUE
 class Opaque {
@@ -392,17 +969,15 @@ std::size_t align_of() {
 namespace craby {
   namespace reactnativenitrotor {
     namespace bridging {
-      struct HttpResponse;
-      struct StartTorParams;
-      struct StartTorResponse;
-      struct HttpPutParams;
-      struct HttpDeleteParams;
-      struct HiddenServiceResponse;
-      struct HiddenServiceParams;
-      struct TorConfig;
-      struct HttpGetParams;
-      struct HttpPostParams;
+      struct NativeHttpRequest;
+      struct NativeTorConfig;
+      struct NativeHiddenServiceOptions;
+      struct NativeHiddenService;
       struct ReactNativeNitroTor;
+      struct ReactNativeNitroTorSignal;
+    }
+    namespace signals {
+      using SignalManager = ::craby::reactnativenitrotor::signals::SignalManager;
     }
   }
 }
@@ -410,122 +985,51 @@ namespace craby {
 namespace craby {
 namespace reactnativenitrotor {
 namespace bridging {
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
-struct HttpResponse final {
-  double status_code CXX_DEFAULT_VALUE(0);
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHttpRequest
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHttpRequest
+struct NativeHttpRequest final {
+  ::rust::String url;
+  ::rust::String method;
+  ::rust::String headers_json;
   ::rust::String body;
-  ::rust::String error;
+  double timeout_ms CXX_DEFAULT_VALUE(0);
+  bool allow_invalid_certificates CXX_DEFAULT_VALUE(false);
 
   using IsRelocatable = ::std::true_type;
 };
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpResponse
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHttpRequest
 
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorParams
-struct StartTorParams final {
-  ::rust::String data_dir;
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeTorConfig
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeTorConfig
+struct NativeTorConfig final {
+  ::rust::String data_directory;
   double socks_port CXX_DEFAULT_VALUE(0);
+  double bootstrap_timeout_ms CXX_DEFAULT_VALUE(0);
+
+  using IsRelocatable = ::std::true_type;
+};
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeTorConfig
+
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHiddenServiceOptions
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHiddenServiceOptions
+struct NativeHiddenServiceOptions final {
+  double virtual_port CXX_DEFAULT_VALUE(0);
   double target_port CXX_DEFAULT_VALUE(0);
-  double timeout_ms CXX_DEFAULT_VALUE(0);
+  ::rust::Vec<::std::uint8_t> private_key;
 
   using IsRelocatable = ::std::true_type;
 };
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorParams
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHiddenServiceOptions
 
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
-struct StartTorResponse final {
-  bool is_success CXX_DEFAULT_VALUE(false);
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHiddenService
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHiddenService
+struct NativeHiddenService final {
   ::rust::String onion_address;
-  ::rust::String control;
-  ::rust::String error_message;
+  ::rust::Vec<::std::uint8_t> private_key;
 
   using IsRelocatable = ::std::true_type;
 };
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$StartTorResponse
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
-struct HttpPutParams final {
-  ::rust::String url;
-  ::rust::String body;
-  ::rust::String headers;
-  double timeout_ms CXX_DEFAULT_VALUE(0);
-  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPutParams
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpDeleteParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpDeleteParams
-struct HttpDeleteParams final {
-  ::rust::String url;
-  ::rust::String headers;
-  double timeout_ms CXX_DEFAULT_VALUE(0);
-  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpDeleteParams
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
-struct HiddenServiceResponse final {
-  bool is_success CXX_DEFAULT_VALUE(false);
-  ::rust::String onion_address;
-  ::rust::String control;
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceResponse
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceParams
-struct HiddenServiceParams final {
-  double port CXX_DEFAULT_VALUE(0);
-  double target_port CXX_DEFAULT_VALUE(0);
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HiddenServiceParams
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$TorConfig
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$TorConfig
-struct TorConfig final {
-  double socks_port CXX_DEFAULT_VALUE(0);
-  ::rust::String data_dir;
-  double timeout_ms CXX_DEFAULT_VALUE(0);
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$TorConfig
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
-struct HttpGetParams final {
-  ::rust::String url;
-  ::rust::String headers;
-  double timeout_ms CXX_DEFAULT_VALUE(0);
-  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpGetParams
-
-#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
-#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
-struct HttpPostParams final {
-  ::rust::String url;
-  ::rust::String body;
-  ::rust::String headers;
-  double timeout_ms CXX_DEFAULT_VALUE(0);
-  bool trust_invalid_certs CXX_DEFAULT_VALUE(false);
-
-  using IsRelocatable = ::std::true_type;
-};
-#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$HttpPostParams
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$NativeHiddenService
 
 #ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTor
 #define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTor
@@ -541,27 +1045,39 @@ private:
 };
 #endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTor
 
+#ifndef CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTorSignal
+#define CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTorSignal
+struct ReactNativeNitroTorSignal final : public ::rust::Opaque {
+  ~ReactNativeNitroTorSignal() = delete;
+
+private:
+  friend ::rust::layout;
+  struct layout {
+    static ::std::size_t size() noexcept;
+    static ::std::size_t align() noexcept;
+  };
+};
+#endif // CXXBRIDGE1_STRUCT_craby$reactnativenitrotor$bridging$ReactNativeNitroTorSignal
+
 ::rust::Box<::craby::reactnativenitrotor::bridging::ReactNativeNitroTor> createReactNativeNitroTor(::std::size_t id, ::rust::Str data_path) noexcept;
 
-::craby::reactnativenitrotor::bridging::HiddenServiceResponse createHiddenService(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::craby::reactnativenitrotor::bridging::HiddenServiceParams params);
+::craby::reactnativenitrotor::bridging::NativeHiddenService createHiddenService(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor const &it_, ::craby::reactnativenitrotor::bridging::NativeHiddenServiceOptions options);
 
-bool deleteHiddenService(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::rust::Str onion_address);
+::rust::String getStatus(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor const &it_);
 
-double getServiceStatus(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_);
+::rust::String httpRequest(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor const &it_, ::craby::reactnativenitrotor::bridging::NativeHttpRequest request);
 
-::craby::reactnativenitrotor::bridging::HttpResponse httpDelete(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::craby::reactnativenitrotor::bridging::HttpDeleteParams params);
+void removeHiddenService(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor const &it_, ::rust::Str onion_address);
 
-::craby::reactnativenitrotor::bridging::HttpResponse httpGet(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::craby::reactnativenitrotor::bridging::HttpGetParams params);
+void requestNewIdentity(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor const &it_);
 
-::craby::reactnativenitrotor::bridging::HttpResponse httpPost(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::craby::reactnativenitrotor::bridging::HttpPostParams params);
+::rust::String start(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor const &it_, ::craby::reactnativenitrotor::bridging::NativeTorConfig config);
 
-::craby::reactnativenitrotor::bridging::HttpResponse httpPut(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::craby::reactnativenitrotor::bridging::HttpPutParams params);
+void stop(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor const &it_);
 
-bool initTorService(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::craby::reactnativenitrotor::bridging::TorConfig config);
+::rust::String get_on_status_change_payload(::craby::reactnativenitrotor::bridging::ReactNativeNitroTorSignal const &s) noexcept;
 
-bool shutdownService(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_);
-
-::craby::reactnativenitrotor::bridging::StartTorResponse startTorIfNotRunning(::craby::reactnativenitrotor::bridging::ReactNativeNitroTor &it_, ::craby::reactnativenitrotor::bridging::StartTorParams params);
+void drop_signal(::craby::reactnativenitrotor::bridging::ReactNativeNitroTorSignal *signal) noexcept;
 } // namespace bridging
 } // namespace reactnativenitrotor
 } // namespace craby

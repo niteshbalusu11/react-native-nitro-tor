@@ -31,7 +31,6 @@ target_link_libraries(cxx-react-native-nitro-tor
   # android
   ReactAndroid::reactnative
   ReactAndroid::jsi
-  log
   # react-native-nitro-tor-lib
   react-native-nitro-tor-lib
 )

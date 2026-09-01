@@ -1,5 +1,5 @@
-use crate::ensure_runtime;
 use crate::TorErrors;
+use crate::ensure_runtime;
 use socks::Socks5Stream;
 use std::io::BufRead;
 use std::io::Write;
@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 type TcpStreamDataHandler = Box<dyn DataObserver + Send + Sync + 'static>;
 
@@ -41,14 +41,10 @@ impl TcpSocksStream {
         socks_proxy: String,
         timeout_ms: u64,
     ) -> Result<Self, TorErrors> {
-        let socks_future = ensure_runtime()
-            .lock()
-            .unwrap()
-            .spawn(async move { TcpSocksStream::new(target, socks_proxy) });
+        let socks_future =
+            ensure_runtime().spawn(async move { TcpSocksStream::new(target, socks_proxy) });
 
         ensure_runtime()
-            .lock()
-            .unwrap()
             .block_on(async move { timeout(Duration::from_millis(timeout_ms), socks_future).await })
             .map_err(|_| TorErrors::BootStrapError(String::from("Tcp connection timedout")))?
             .map_err(TorErrors::ThreadingError)?
@@ -58,7 +54,7 @@ impl TcpSocksStream {
     where
         F: DataObserver + Send + Sync + 'static,
     {
-        ensure_runtime().lock().unwrap().block_on(async move {
+        ensure_runtime().block_on(async move {
             let data_clone = self.data_handler.clone();
             let mut data_write = data_clone.write().await;
             *data_write = Some(Box::new(callback));
@@ -75,7 +71,7 @@ impl TcpSocksStream {
             .map_err(|_| TorErrors::TcpStreamError(String::from("Error cloning tcp stream")))?;
         let cb_clone = self.data_handler.clone();
 
-        ensure_runtime().lock().unwrap().spawn(async move {
+        ensure_runtime().spawn(async move {
             let mut read_buf = read_buf_clone.write().await;
                     loop {
                         let mut string_buf = String::new();
@@ -119,7 +115,7 @@ impl TcpSocksStream {
     {
         let tcp_stream = self.stream.get_ref().try_clone()?;
         let mut reader = std::io::BufReader::new(tcp_stream.try_clone()?);
-        let _lsner_handle = ensure_runtime().lock().unwrap().spawn_blocking(move || {
+        let _lsner_handle = ensure_runtime().spawn_blocking(move || {
             loop {
                 let mut string_buf = String::new();
                 match reader.read_line(&mut string_buf) {
@@ -173,6 +169,7 @@ mod tests {
 
     #[test]
     #[serial(tor)]
+    #[ignore = "requires a live Tor network"]
     fn connects_with_timeout() {
         let service: TorService = TorServiceParam {
             socks_port: Some(19054),
@@ -192,6 +189,7 @@ mod tests {
 
     #[test]
     #[serial(tor)]
+    #[ignore = "requires a live external onion service"]
     fn can_send_and_observe_data() {
         let service: TorService = TorServiceParam {
             socks_port: Some(19054),
@@ -245,6 +243,7 @@ mod tests {
 
     #[test]
     #[serial(tor)]
+    #[ignore = "requires a live external onion service"]
     fn can_read_ticks() {
         let service: TorService = TorServiceParam {
             socks_port: Some(19054),
@@ -260,9 +259,7 @@ mod tests {
         let mut tcp_com =
             TcpSocksStream::new_timeout(target.into(), "127.0.0.1:19054".into(), 7000).unwrap();
 
-        struct Observer {
-            pub count: Arc<Mutex<u16>>,
-        }
+        struct Observer;
         impl DataObserver for Observer {
             fn on_data(&self, data: String) {
                 // let decoded_payload = base64::decode(data).unwrap();
@@ -277,10 +274,7 @@ mod tests {
                 }
             }
         }
-        let count = Arc::new(Mutex::new(0));
-        let obv = Observer {
-            count: count.clone(),
-        };
+        let obv = Observer;
         let _ = tcp_com.set_data_handler(obv);
         tcp_com.send_data(msg.into(), None).unwrap();
         tcp_com.send_data(msg.into(), None).unwrap();

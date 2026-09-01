@@ -1,5 +1,7 @@
+pub mod control;
 pub mod hidden_service;
 pub mod http_client;
+pub mod status;
 pub mod tcp_stream;
 use futures::Future;
 use libtor::{Tor, TorAddress, TorFlag};
@@ -12,16 +14,21 @@ use std::fs;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread::JoinHandle;
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio::task::JoinError;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tokio_compat_02::FutureExt;
 use torut::control::{AsyncEvent, AuthenticatedConn, ConnError, UnauthenticatedConn};
 use torut::onion::TorSecretKeyV3;
+
+use crate::control::{ControlConnection, TorControlEvent};
+use crate::status::{
+    NetworkLiveness, parse_bootstrap_status, parse_circuit_established, parse_network_liveness,
+};
 
 type F = Box<
     dyn Fn(AsyncEvent<'static>) -> Pin<Box<dyn Future<Output = Result<(), ConnError>>>>
@@ -31,24 +38,22 @@ type F = Box<
 type G = AuthenticatedConn<TcpStream, F>;
 
 // Replace lazy_static with once_cell for better initialization control
-static RUNTIME: OnceCell<Mutex<tokio::runtime::Runtime>> = OnceCell::new();
+static RUNTIME: OnceCell<tokio::runtime::Runtime> = OnceCell::new();
 
-pub fn ensure_runtime() -> &'static Mutex<tokio::runtime::Runtime> {
+pub fn ensure_runtime() -> &'static tokio::runtime::Runtime {
     RUNTIME.get_or_init(|| {
-        Mutex::new(
-            tokio::runtime::Builder::new_multi_thread()
-                .max_blocking_threads(num_cpus::get() / 2)
-                .thread_name_fn(|| {
-                    static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
-                    let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
-                    format!("sifir-thread-pool-{}", id)
-                })
-                .on_thread_start(|| debug!("thread started on {} cpus", num_cpus::get()))
-                .on_thread_stop(|| debug!("thread stopped"))
-                .enable_all()
-                .build()
-                .unwrap(),
-        )
+        tokio::runtime::Builder::new_multi_thread()
+            .max_blocking_threads(num_cpus::get() / 2)
+            .thread_name_fn(|| {
+                static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
+                let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
+                format!("sifir-thread-pool-{}", id)
+            })
+            .on_thread_start(|| debug!("thread started on {} cpus", num_cpus::get()))
+            .on_thread_stop(|| debug!("thread stopped"))
+            .enable_all()
+            .build()
+            .unwrap()
     })
 }
 
@@ -82,7 +87,10 @@ pub struct OwnedTorService {
     pub control_port: String,
     _handle: Option<JoinHandle<Result<u8, libtor::Error>>>,
     _ctl: RefCell<Option<G>>,
+    event_handle: Option<tokio::task::JoinHandle<()>>,
 }
+
+pub type TorStatusObserver = Arc<dyn Fn(TorControlEvent) + Send + Sync + 'static>;
 
 #[repr(C)]
 pub struct TorHiddenServiceParam {
@@ -95,6 +103,21 @@ pub struct TorHiddenServiceParam {
 pub struct TorHiddenService {
     pub onion_url: TorAddress,
     pub secret_key: [u8; 64],
+}
+
+pub fn onion_address_for_secret_key(secret_key: [u8; 64]) -> String {
+    TorSecretKeyV3::from(secret_key)
+        .public()
+        .get_onion_address()
+        .to_string()
+}
+
+fn normalize_onion_service_id(onion: &str) -> &str {
+    onion
+        .split(':')
+        .next()
+        .unwrap_or(onion)
+        .trim_end_matches(".onion")
 }
 /// The Phases of a Boostraping node
 /// From https://github.com/torproject/torspec/blob/master/proposals/137-bootstrap-phases.txt
@@ -119,8 +142,9 @@ trait TorControlApi {
     fn wait_bootstrap(
         &mut self,
         timeout_ms: Option<u64>,
+        observer: Option<TorStatusObserver>,
+        cancelled: Arc<AtomicBool>,
     ) -> Pin<Box<dyn Future<Output = Result<bool, TorErrors>> + '_>>;
-    fn shutdown(self);
     fn get_status(
         &mut self,
     ) -> Pin<Box<dyn Future<Output = Result<OwnedTorServiceBootstrapPhase, TorErrors>> + '_>>;
@@ -129,17 +153,23 @@ trait TorControlApi {
 #[derive(Error, Debug)]
 pub enum TorErrors {
     #[error("Control connection error: {:?}",.0)]
-    ControlConnectionError(ConnError),
+    ControlConnectionError(#[from] ConnError),
     #[error("Error with Tor daemon:")]
     TorLibError(#[from] libtor::Error),
     #[error("Error Bootstraping:")]
     BootStrapError(String),
+    #[error("Tor startup was cancelled")]
+    StartCancelled,
+    #[error("Timed out waiting for Tor to bootstrap")]
+    BootstrapTimeout,
     #[error("Error Io:")]
     IoError(#[from] io::Error),
     #[error("Error Threading:")]
     ThreadingError(#[from] JoinError),
     #[error("Error TcpStream:")]
     TcpStreamError(String),
+    #[error("HTTP request failed: {0}")]
+    HttpRequestError(#[from] reqwest::Error),
 }
 
 /// Convert Torservice Param into an Unauthentication TorService:
@@ -290,27 +320,59 @@ impl TorService {
     /// and returning an OwnedTorService which is fully bootstrapped and under our control
     /// (If we drop this object the Tor daemon will shut down)
     pub fn into_owned_node(self) -> Result<OwnedTorService, TorErrors> {
-        ensure_runtime().lock().unwrap().block_on(
+        self.into_owned_node_with_observer(None, Arc::new(AtomicBool::new(false)))
+    }
+
+    pub fn into_owned_node_with_observer(
+        self,
+        observer: Option<TorStatusObserver>,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<OwnedTorService, TorErrors> {
+        let bootstrap_timeout_ms = self.bootstrap_timeout_ms;
+        let connection = ensure_runtime().block_on(
             async {
                 let mut ac = self
                     .get_control_auth_conn(Some(Box::new(handler) as F))
                     .compat()
                     .await?;
-                // take ownership before bootstrap so if we timeout we drop control and shutdown deamon
+                // Take ownership before bootstrap so dropping this connection stops Tor.
                 ac.take_ownership()
                     .compat()
                     .await
                     .map_err(TorErrors::ControlConnectionError)?;
-                ac.wait_bootstrap(Some(self.bootstrap_timeout_ms)).await?;
-                Ok(OwnedTorService {
-                    socks_port: self.socks_port,
-                    control_port: self.control_port,
-                    _handle: self._handle,
-                    _ctl: RefCell::new(Some(ac)),
-                })
+                ac.wait_bootstrap(Some(bootstrap_timeout_ms), observer.clone(), cancelled)
+                    .await?;
+                Ok(ac)
             }
             .compat(),
-        )
+        );
+        let socks_port = self.socks_port;
+        let control_port = self.control_port;
+        let handle = self._handle;
+
+        match connection {
+            Ok(ac) => {
+                let mut service = OwnedTorService {
+                    socks_port,
+                    control_port,
+                    _handle: handle,
+                    _ctl: RefCell::new(Some(ac)),
+                    event_handle: None,
+                };
+                service.start_event_monitor(observer);
+                Ok(service)
+            }
+            Err(error) => {
+                if let Some(handle) = handle {
+                    handle.join().map_err(|_| {
+                        TorErrors::BootStrapError(
+                            "Error joining Tor after failed startup".to_string(),
+                        )
+                    })??;
+                }
+                Err(error)
+            }
+        }
     }
 }
 
@@ -333,7 +395,7 @@ impl OwnedTorService {
         &mut self,
         param: TorHiddenServiceParam,
     ) -> Result<TorHiddenService, TorErrors> {
-        ensure_runtime().lock().unwrap().block_on(
+        ensure_runtime().block_on(
             async {
                 let mut _ctl = self._ctl.borrow_mut();
                 let ctl = _ctl
@@ -375,14 +437,14 @@ impl OwnedTorService {
         )
     }
     pub fn delete_hidden_service(&mut self, onion: String) -> Result<(), TorErrors> {
-        ensure_runtime().lock().unwrap().block_on(
+        ensure_runtime().block_on(
             async {
                 let mut _ctl = self._ctl.borrow_mut();
                 let ctl = _ctl
                     .as_mut()
                     .ok_or(TorErrors::BootStrapError(String::from("Error mut lock")))?;
 
-                ctl.del_onion(&onion)
+                ctl.del_onion(normalize_onion_service_id(&onion))
                     .await
                     .map_err(TorErrors::ControlConnectionError)?;
 
@@ -397,7 +459,7 @@ impl OwnedTorService {
     /// OwnedTorServiceBootstrapPhase will either be Done or Other(String) containing the stage of
     /// the boostrap the node is a
     pub fn get_status(&self) -> Result<OwnedTorServiceBootstrapPhase, TorErrors> {
-        ensure_runtime().lock().unwrap().block_on(
+        ensure_runtime().block_on(
             async {
                 let mut ctl = self._ctl.borrow_mut();
                 let r = ctl
@@ -410,22 +472,101 @@ impl OwnedTorService {
             .compat(),
         )
     }
+
+    pub fn get_connectivity(&self) -> Result<(NetworkLiveness, bool), TorErrors> {
+        ensure_runtime().block_on(
+            async {
+                let mut ctl = self._ctl.borrow_mut();
+                let ctl = ctl.as_mut().ok_or(TorErrors::BootStrapError(
+                    "Unable to get control connection".into(),
+                ))?;
+                let network = ctl.get_info("network-liveness").await?;
+                let circuit = ctl.get_info("status/circuit-established").await?;
+                Ok((
+                    parse_network_liveness(&network),
+                    parse_circuit_established(&circuit).unwrap_or(false),
+                ))
+            }
+            .compat(),
+        )
+    }
+
+    pub fn request_new_identity(&self) -> Result<(), TorErrors> {
+        let control_port = self.control_port.clone();
+        ensure_runtime().block_on(async move {
+            let mut connection = ControlConnection::connect(&control_port).await?;
+            connection.request_new_identity().await
+        })
+    }
+
+    fn start_event_monitor(&mut self, observer: Option<TorStatusObserver>) {
+        let Some(observer) = observer else {
+            return;
+        };
+        let control_port = self.control_port.clone();
+        self.event_handle = Some(ensure_runtime().spawn(async move {
+            loop {
+                let mut connection = match ControlConnection::connect(&control_port).await {
+                    Ok(connection) => connection,
+                    Err(error) => {
+                        observer(TorControlEvent::ControlConnectionFailed(error.to_string()));
+                        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                        continue;
+                    }
+                };
+                if let Err(error) = connection.subscribe().await {
+                    observer(TorControlEvent::ControlConnectionFailed(error.to_string()));
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                    continue;
+                }
+
+                loop {
+                    match connection.next_event().await {
+                        Ok(TorControlEvent::CircuitChanged) => {
+                            if let Ok(value) =
+                                connection.get_info("status/circuit-established").await
+                            {
+                                if let Some(established) = parse_circuit_established(&value) {
+                                    observer(TorControlEvent::CircuitEstablished(established));
+                                }
+                            }
+                        }
+                        Ok(event) => observer(event),
+                        Err(error) => {
+                            observer(TorControlEvent::ControlConnectionFailed(error.to_string()));
+                            break;
+                        }
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            }
+        }));
+    }
+
     /// take control conn and drop it.
     /// Closing the owned connection and causes tor daemon to shutdown
     /// Then waits on the Tor daemon thread to exit
     pub fn shutdown(&mut self) -> Result<(), TorErrors> {
-        {
-            let _ = self._ctl.borrow_mut().take();
+        self.shutdown_inner()
+    }
+
+    fn shutdown_inner(&mut self) -> Result<(), TorErrors> {
+        if let Some(handle) = self.event_handle.take() {
+            handle.abort();
         }
-        let _ = self
-            ._handle
-            .take()
-            .ok_or(TorErrors::BootStrapError(String::from(
-                "Error shutdown take handle",
-            )))?
-            .join()
-            .map_err(|_| TorErrors::BootStrapError(String::from("Error joining on shutdown")))?;
+        self._ctl.borrow_mut().take();
+        if let Some(handle) = self._handle.take() {
+            handle.join().map_err(|_| {
+                TorErrors::BootStrapError(String::from("Error joining on shutdown"))
+            })??;
+        }
         Ok(())
+    }
+}
+
+impl Drop for OwnedTorService {
+    fn drop(&mut self) {
+        let _ = self.shutdown_inner();
     }
 }
 /// High level API for Torut used internally by TorService to expose
@@ -438,6 +579,8 @@ where
     fn wait_bootstrap(
         &mut self,
         timeout_ms: Option<u64>,
+        observer: Option<TorStatusObserver>,
+        cancelled: Arc<AtomicBool>,
     ) -> Pin<Box<dyn Future<Output = Result<bool, TorErrors>> + '_>> {
         // Wait for boostrap to be done
         let future = async move {
@@ -446,18 +589,28 @@ where
                 async move {
                     let mut input = String::new();
                     while !input.trim().contains("PROGRESS=100 TAG=done") {
+                        if cancelled.load(Ordering::SeqCst) {
+                            return Err(TorErrors::StartCancelled);
+                        }
                         input = self
                             .get_info("status/bootstrap-phase")
                             .await
                             .map_err(TorErrors::ControlConnectionError)?;
-                        std::thread::sleep(std::time::Duration::from_millis(300));
+                        if let (Some(observer), Ok(status)) =
+                            (observer.as_ref(), parse_bootstrap_status(&input))
+                        {
+                            observer(TorControlEvent::Bootstrap(status));
+                        }
+                        if !input.trim().contains("PROGRESS=100 TAG=done") {
+                            tokio::time::sleep(Duration::from_millis(300)).await;
+                        }
                     }
                     Ok(true)
                 },
             )
             .compat()
             .await
-            .map_err(|_| TorErrors::BootStrapError(String::from("Timeout waiting for boostrap")))?
+            .map_err(|_| TorErrors::BootstrapTimeout)?
         }
         .compat();
         Box::pin(future)
@@ -484,9 +637,6 @@ where
             .compat(),
         )
     }
-    // dropping the control connection after having taken ownership of the node will cause the node
-    // to shutdown
-    fn shutdown(self) {}
 }
 
 #[cfg(test)]
@@ -497,10 +647,63 @@ mod tests {
     use std::io::Write;
     use std::net::TcpListener;
 
+    fn owned_service_without_bootstrap(socks_port: u16, data_dir: &str) -> OwnedTorService {
+        let service = TorService::new(TorServiceParam {
+            socks_port: Some(socks_port),
+            data_dir: data_dir.to_string(),
+            bootstrap_timeout_ms: Some(45_000),
+        })
+        .unwrap();
+        let connection = ensure_runtime()
+            .block_on(
+                async {
+                    let mut connection = service
+                        .get_control_auth_conn(Some(Box::new(handler) as F))
+                        .compat()
+                        .await?;
+                    connection
+                        .take_ownership()
+                        .compat()
+                        .await
+                        .map_err(TorErrors::ControlConnectionError)?;
+                    Ok::<_, TorErrors>(connection)
+                }
+                .compat(),
+            )
+            .unwrap();
+
+        OwnedTorService {
+            socks_port: service.socks_port,
+            control_port: service.control_port,
+            _handle: service._handle,
+            _ctl: RefCell::new(Some(connection)),
+            event_handle: None,
+        }
+    }
+
+    #[test]
+    fn normalizes_onion_address_for_control_commands() {
+        assert_eq!(normalize_onion_service_id("example.onion:80"), "example");
+        assert_eq!(normalize_onion_service_id("example.onion"), "example");
+    }
+
     #[test]
     #[serial(tor)]
+    fn dropping_owned_service_waits_for_tor_shutdown() {
+        let first =
+            owned_service_without_bootstrap(19101, "/tmp/react-native-nitro-tor-drop-first");
+        drop(first);
+
+        let mut second =
+            owned_service_without_bootstrap(19102, "/tmp/react-native-nitro-tor-drop-second");
+        second.shutdown().unwrap();
+    }
+
+    #[test]
+    #[serial(tor)]
+    #[ignore = "requires a live Tor network"]
     fn from_param_and_await_boostrap() {
-        ensure_runtime().lock().unwrap().block_on(
+        ensure_runtime().block_on(
             async {
                 let service: TorService = TorServiceParam {
                     socks_port: Some(19051),
@@ -518,13 +721,13 @@ mod tests {
                     .await
                     .unwrap();
                 let bootsraped = control_conn
-                    .wait_bootstrap(Some(20000))
+                    .wait_bootstrap(Some(20000), None, Arc::new(AtomicBool::new(false)))
                     .compat()
                     .await
                     .unwrap();
                 assert_eq!(bootsraped, true);
                 control_conn.take_ownership().await.unwrap();
-                control_conn.shutdown();
+                drop(control_conn);
                 let _ = service._handle.unwrap().join();
             }
             .compat(),
@@ -534,28 +737,33 @@ mod tests {
     #[test]
     #[serial(tor)]
     fn bootstrap_timeout() {
-        ensure_runtime().lock().unwrap().block_on(
-            async {
-                let service: TorService = TorServiceParam {
-                    socks_port: Some(19051),
-                    data_dir: String::from("/tmp/torlib2"),
-                    bootstrap_timeout_ms: Some(1000),
-                }
-                .try_into()
-                .unwrap();
-                assert_eq!(service.socks_port, 19051);
-                assert_eq!(service.control_port.contains("127.0.0.1:"), true);
-                assert_eq!(service._handle.is_some(), true);
-                let mut control_conn = service.get_control_auth_conn(Some(handler)).await.unwrap();
-                let bootsraped = control_conn.wait_bootstrap(Some(500)).await;
-                assert_eq!(bootsraped.is_err(), true);
-            }
-            .compat(),
-        );
+        let result = OwnedTorService::new(TorServiceParam {
+            socks_port: Some(19051),
+            data_dir: String::from("/tmp/torlib-bootstrap-timeout"),
+            bootstrap_timeout_ms: Some(500),
+        });
+        assert!(matches!(result, Err(TorErrors::BootstrapTimeout)));
     }
 
     #[test]
     #[serial(tor)]
+    fn daemon_can_start_again_after_bootstrap_timeout() {
+        for (socks_port, data_dir) in [
+            (19061, "/tmp/torlib-retry-first"),
+            (19062, "/tmp/torlib-retry-second"),
+        ] {
+            let result = OwnedTorService::new(TorServiceParam {
+                socks_port: Some(socks_port),
+                data_dir: data_dir.to_string(),
+                bootstrap_timeout_ms: Some(100),
+            });
+            assert!(matches!(result, Err(TorErrors::BootstrapTimeout)));
+        }
+    }
+
+    #[test]
+    #[serial(tor)]
+    #[ignore = "requires a live external onion service"]
     fn to_owned() {
         let service: TorService = TorServiceParam {
             socks_port: Some(19054),
@@ -568,7 +776,7 @@ mod tests {
 
         let mut owned_node = service.into_owned_node().unwrap();
 
-        ensure_runtime().lock().unwrap().block_on(
+        ensure_runtime().block_on(
             async {
                 let resp = client
                     .get("http://keybase5wmilwokqirssclfnsqrjdsi7jdir5wy7y7iu3tanwmtp6oid.onion")
@@ -585,6 +793,7 @@ mod tests {
 
     #[test]
     #[serial(tor)]
+    #[ignore = "legacy timing-dependent bootstrap test"]
     fn to_owned_with_timeout() {
         let service: TorService = TorServiceParam {
             socks_port: Some(19054),
@@ -598,6 +807,7 @@ mod tests {
 
     #[test]
     #[serial(tor)]
+    #[ignore = "requires a live Tor network"]
     fn get_status() {
         let service: TorService = TorServiceParam {
             socks_port: Some(19054),
@@ -613,6 +823,7 @@ mod tests {
     }
     #[test]
     #[serial(tor)]
+    #[ignore = "requires a live Tor network"]
     fn create_hidden_service() {
         let service: TorService = TorServiceParam {
             socks_port: Some(19054),
@@ -633,7 +844,7 @@ mod tests {
         assert!(service_key.onion_url.to_string().contains(".onion"));
 
         // Spawn a lsner to our request and respond with 200
-        let _handle = ensure_runtime().lock().unwrap().spawn(async {
+        let handle = ensure_runtime().spawn(async {
             let listener = TcpListener::bind("127.0.0.1:20000").unwrap();
             for stream in listener.incoming() {
                 let mut stream = stream.unwrap();
@@ -647,13 +858,14 @@ mod tests {
             utils::reqwest::Url::parse(&format!("http://{}", service_key.onion_url)).unwrap();
         let _ = onion_url.set_port(Some(20011 as u16));
 
-        ensure_runtime().lock().unwrap().block_on(
+        ensure_runtime().block_on(
             async {
                 let resp = client.get(onion_url).send().await.unwrap();
                 assert_eq!(resp.status(), 200);
             }
             .compat(),
         );
+        handle.abort();
         owned_node.shutdown().unwrap();
     }
 }

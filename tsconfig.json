@@ -11,5 +11,6 @@
     "allowJs": false,
     "skipLibCheck": true
   },
+  "include": ["src/**/*.ts"],
   "exclude": ["**/dist/*"]
 }

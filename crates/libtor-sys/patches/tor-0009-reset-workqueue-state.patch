@@ -1,0 +1,10 @@
+diff --git a/src/lib/evloop/workqueue.c b/src/lib/evloop/workqueue.c
+index acf5775784..ba94cf723b 100644
+--- a/src/lib/evloop/workqueue.c
++++ b/src/lib/evloop/workqueue.c
+@@ -384,3 +384,5 @@ worker_thread_main(void *thread_)
++    n_worker_threads_running = 0;
++    control_lock_owner = 0;
+     tor_mutex_release(&pool->lock);
+     /* Let the main thread know, the last worker thread has exited. */
+     tor_mutex_release(&pool->control_lock);

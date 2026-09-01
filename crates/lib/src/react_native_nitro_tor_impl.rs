@@ -1,4 +1,6 @@
-use craby::{prelude::*, throw};
+use std::sync::Arc;
+
+use craby::prelude::*;
 
 use crate::ffi::bridging::*;
 use crate::generated::*;
@@ -8,80 +10,92 @@ pub struct ReactNativeNitroTor {
     ctx: Context,
 }
 
+impl ReactNativeNitroTor {
+    fn register_status_emitter(&self) {
+        let id = self.id();
+        tor::register_status_emitter(Arc::new(move |payload| {
+            let signal = Box::new(ReactNativeNitroTorSignal::OnStatusChange(payload));
+            let signal_ptr = Box::into_raw(signal);
+            let manager = get_signal_manager();
+            let delivered = unsafe { manager.emit(id, "onStatusChange", signal_ptr) };
+            if !delivered {
+                unsafe {
+                    drop(Box::from_raw(signal_ptr));
+                }
+            }
+        }));
+    }
+}
+
 #[craby_module]
 impl ReactNativeNitroTorSpec for ReactNativeNitroTor {
-    fn create_hidden_service(
-        &mut self,
-        params: HiddenServiceParams,
-    ) -> Promise<HiddenServiceResponse> {
-        Ok(tor::create_hidden_service(params.port, params.target_port))
-    }
-
-    fn delete_hidden_service(&mut self, onion_address: &str) -> Promise<Boolean> {
-        let address = onion_address.to_string();
-        Ok(tor::delete_hidden_service(address))
-    }
-
-    fn get_service_status(&mut self) -> Promise<Number> {
-        Ok(tor::get_service_status())
-    }
-
-    fn http_delete(&mut self, params: HttpDeleteParams) -> Promise<HttpResponse> {
-        Ok(tor::http_delete(
-            params.url,
-            params.headers,
-            params.timeout_ms,
-            params.trust_invalid_certs,
-        ))
-    }
-
-    fn http_get(&mut self, params: HttpGetParams) -> Promise<HttpResponse> {
-        Ok(tor::http_get(
-            params.url,
-            params.headers,
-            params.timeout_ms,
-            params.trust_invalid_certs,
-        ))
-    }
-
-    fn http_post(&mut self, params: HttpPostParams) -> Promise<HttpResponse> {
-        Ok(tor::http_post(
-            params.url,
-            params.body,
-            params.headers,
-            params.timeout_ms,
-            params.trust_invalid_certs,
-        ))
-    }
-
-    fn http_put(&mut self, params: HttpPutParams) -> Promise<HttpResponse> {
-        Ok(tor::http_put(
-            params.url,
-            params.body,
-            params.headers,
-            params.timeout_ms,
-            params.trust_invalid_certs,
-        ))
-    }
-
-    fn init_tor_service(&mut self, config: TorConfig) -> Promise<Boolean> {
-        Ok(tor::init_tor_service(
+    fn start(&self, config: NativeTorConfig) -> Promise<String> {
+        self.register_status_emitter();
+        let config = tor::validate_config(
+            config.data_directory,
             config.socks_port,
-            config.data_dir,
-            config.timeout_ms,
-        ))
+            config.bootstrap_timeout_ms,
+        )?;
+        tor::start(config)
     }
 
-    fn shutdown_service(&mut self) -> Promise<Boolean> {
-        Ok(tor::shutdown_service())
+    fn stop(&self) -> Promise<Void> {
+        self.register_status_emitter();
+        tor::stop()
     }
 
-    fn start_tor_if_not_running(&mut self, params: StartTorParams) -> Promise<StartTorResponse> {
-        Ok(tor::start_tor_if_not_running(
-            params.data_dir,
-            params.socks_port,
-            params.target_port,
-            params.timeout_ms,
-        ))
+    fn get_status(&self) -> Promise<String> {
+        self.register_status_emitter();
+        tor::get_status()
+    }
+
+    fn request_new_identity(&self) -> Promise<Void> {
+        self.register_status_emitter();
+        tor::request_new_identity()
+    }
+
+    fn http_request(&self, request: NativeHttpRequest) -> Promise<String> {
+        self.register_status_emitter();
+        let timeout_ms = tor::validate_timeout(request.timeout_ms, "timeoutMs", "INVALID_REQUEST")?;
+        tor::http_request(tor::HttpRequest {
+            url: request.url,
+            method: request.method,
+            headers_json: request.headers_json,
+            body: if request.body.is_empty() {
+                None
+            } else {
+                Some(request.body)
+            },
+            timeout_ms,
+            allow_invalid_certificates: request.allow_invalid_certificates,
+        })
+    }
+
+    fn create_hidden_service(
+        &self,
+        options: NativeHiddenServiceOptions,
+    ) -> Promise<NativeHiddenService> {
+        self.register_status_emitter();
+        let virtual_port = tor::validate_port(
+            options.virtual_port,
+            "virtualPort",
+            "INVALID_HIDDEN_SERVICE",
+        )?;
+        let target_port =
+            tor::validate_port(options.target_port, "targetPort", "INVALID_HIDDEN_SERVICE")?;
+        let result = tor::create_hidden_service(tor::HiddenServiceOptions {
+            virtual_port,
+            target_port,
+            private_key: options.private_key,
+        })?;
+        Ok(NativeHiddenService {
+            onion_address: result.onion_address,
+            private_key: result.private_key,
+        })
+    }
+
+    fn remove_hidden_service(&self, onion_address: &str) -> Promise<Void> {
+        self.register_status_emitter();
+        tor::remove_hidden_service(onion_address.to_string())
     }
 }

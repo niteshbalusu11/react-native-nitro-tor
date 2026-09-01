@@ -20,53 +20,45 @@ public:
   ~CxxReactNativeNitroTorModule();
 
   void invalidate();
+  void emit(std::string name, bridging::ReactNativeNitroTorSignal* signal);
+
   static facebook::jsi::Value
   createHiddenService(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 
   static facebook::jsi::Value
-  deleteHiddenService(facebook::jsi::Runtime &rt,
+  getStatus(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 
   static facebook::jsi::Value
-  getServiceStatus(facebook::jsi::Runtime &rt,
+  httpRequest(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 
   static facebook::jsi::Value
-  httpDelete(facebook::jsi::Runtime &rt,
+  removeHiddenService(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 
   static facebook::jsi::Value
-  httpGet(facebook::jsi::Runtime &rt,
+  requestNewIdentity(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 
   static facebook::jsi::Value
-  httpPost(facebook::jsi::Runtime &rt,
+  start(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 
   static facebook::jsi::Value
-  httpPut(facebook::jsi::Runtime &rt,
+  stop(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 
   static facebook::jsi::Value
-  initTorService(facebook::jsi::Runtime &rt,
-      facebook::react::TurboModule &turboModule,
-      const facebook::jsi::Value args[], size_t count);
-
-  static facebook::jsi::Value
-  shutdownService(facebook::jsi::Runtime &rt,
-      facebook::react::TurboModule &turboModule,
-      const facebook::jsi::Value args[], size_t count);
-
-  static facebook::jsi::Value
-  startTorIfNotRunning(facebook::jsi::Runtime &rt,
+  onStatusChange(facebook::jsi::Runtime &rt,
       facebook::react::TurboModule &turboModule,
       const facebook::jsi::Value args[], size_t count);
 

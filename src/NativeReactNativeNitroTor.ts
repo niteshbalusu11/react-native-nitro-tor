@@ -1,105 +1,41 @@
-import type { NativeModule } from "craby-modules";
-import { NativeModuleRegistry } from "craby-modules";
+import type { NativeModule, Signal } from 'craby-modules';
+import { NativeModuleRegistry } from 'craby-modules';
 
-export interface TorConfig {
+export interface NativeTorConfig {
+  data_directory: string;
   socks_port: number;
-  data_dir: string;
-  timeout_ms: number;
+  bootstrap_timeout_ms: number;
 }
 
-export interface HiddenServiceParams {
-  port: number;
+export interface NativeHttpRequest {
+  url: string;
+  method: string;
+  headers_json: string;
+  body: string;
+  timeout_ms: number;
+  allow_invalid_certificates: boolean;
+}
+
+export interface NativeHiddenServiceOptions {
+  virtual_port: number;
   target_port: number;
+  private_key: ArrayBuffer;
 }
 
-export interface StartTorParams {
-  data_dir: string;
-  socks_port: number;
-  target_port: number;
-  timeout_ms: number;
-}
-
-export interface StartTorResponse {
-  is_success: boolean;
+export interface NativeHiddenService {
   onion_address: string;
-  control: string;
-  error_message: string;
-}
-
-export interface HiddenServiceResponse {
-  is_success: boolean;
-  onion_address: string;
-  control: string;
-}
-
-export interface HttpGetParams {
-  url: string;
-  headers: string;
-  timeout_ms: number;
-  trust_invalid_certs: boolean;
-}
-
-export interface HttpPostParams {
-  url: string;
-  body: string;
-  headers: string;
-  timeout_ms: number;
-  trust_invalid_certs: boolean;
-}
-
-export interface HttpPutParams {
-  url: string;
-  body: string;
-  headers: string;
-  timeout_ms: number;
-  trust_invalid_certs: boolean;
-}
-
-export interface HttpDeleteParams {
-  url: string;
-  headers: string;
-  timeout_ms: number;
-  trust_invalid_certs: boolean;
-}
-
-export interface HttpResponse {
-  status_code: number;
-  body: string;
-  error: string;
+  private_key: ArrayBuffer;
 }
 
 interface Spec extends NativeModule {
-  // Initialize the Tor service
-  initTorService(config: TorConfig): Promise<boolean>;
-
-  // Create a new hidden service
-  createHiddenService(
-    params: HiddenServiceParams,
-  ): Promise<HiddenServiceResponse>;
-
-  // Start the Tor daemon with hidden service and control port
-  startTorIfNotRunning(params: StartTorParams): Promise<StartTorResponse>;
-
-  // Get the current service status
-  getServiceStatus(): Promise<number>;
-
-  // Delete an existing hidden service
-  deleteHiddenService(onionAddress: string): Promise<boolean>;
-
-  // Shutdown the Tor service
-  shutdownService(): Promise<boolean>;
-
-  // Http GET
-  httpGet(params: HttpGetParams): Promise<HttpResponse>;
-
-  // Http POST
-  httpPost(params: HttpPostParams): Promise<HttpResponse>;
-
-  // Http PUT
-  httpPut(params: HttpPutParams): Promise<HttpResponse>;
-
-  // Http Delete
-  httpDelete(params: HttpDeleteParams): Promise<HttpResponse>;
+  start(config: NativeTorConfig): Promise<string>;
+  stop(): Promise<void>;
+  getStatus(): Promise<string>;
+  requestNewIdentity(): Promise<void>;
+  httpRequest(request: NativeHttpRequest): Promise<string>;
+  createHiddenService(options: NativeHiddenServiceOptions): Promise<NativeHiddenService>;
+  removeHiddenService(onionAddress: string): Promise<void>;
+  readonly onStatusChange: Signal<string>;
 }
 
-export default NativeModuleRegistry.getEnforcing<Spec>("ReactNativeNitroTor");
+export default NativeModuleRegistry.getEnforcing<Spec>('ReactNativeNitroTor');

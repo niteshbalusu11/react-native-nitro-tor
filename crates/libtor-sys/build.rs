@@ -74,9 +74,40 @@ fn patches(prefix: &str) -> Vec<PathBuf> {
 
 fn apply_patches(prefix: &str, source: &Path) {
     for patch in patches(prefix) {
+        println!("cargo:rerun-if-changed={}", patch.display());
         let patch = patch.to_str().expect("Native patch path must be UTF-8");
-        run_command("git", &["apply", "-p1", patch], source)
+        let directory = format!("--directory={}", source.display());
+        let cwd = env::temp_dir();
+        let check = [
+            "apply",
+            "--check",
+            "--unsafe-paths",
+            "-p1",
+            &directory,
+            patch,
+        ];
+        if run_command("git", &check, &cwd).is_ok() {
+            run_command(
+                "git",
+                &["apply", "--unsafe-paths", "-p1", &directory, patch],
+                &cwd,
+            )
             .unwrap_or_else(|error| panic!("Cannot apply native patch {patch}: {error}"));
+            continue;
+        }
+
+        let already_applied = [
+            "apply",
+            "--reverse",
+            "--check",
+            "--unsafe-paths",
+            "-p1",
+            &directory,
+            patch,
+        ];
+        run_command("git", &already_applied, &cwd).unwrap_or_else(|error| {
+            panic!("Native patch {patch} neither applies nor is already applied: {error}")
+        });
     }
 }
 
@@ -124,6 +155,9 @@ fn build_libevent(path: &Path) -> Artifacts {
     let compiler = cc.get_compiler();
 
     let root = PathBuf::from(env::var("OUT_DIR").expect("missing OUT_DIR")).join("libevent");
+    if target.contains("apple-ios") && root.exists() {
+        fs::remove_dir_all(&root).expect("Cannot reset the iOS libevent build directory");
+    }
     fs::create_dir_all(&root).expect("Cannot write to OUT_DIR");
 
     let mut config = autotools::Config::new(path);
@@ -167,6 +201,13 @@ fn build_tor(libevent: Artifacts, path: &Path) {
     let mut cc = cc::Build::new();
     cc.target(&target).host(&host);
     let compiler = cc.get_compiler();
+
+    if target.contains("apple-ios") {
+        let build_dir = PathBuf::from(std_env_expected!("OUT_DIR")).join("build");
+        if build_dir.exists() {
+            fs::remove_dir_all(build_dir).expect("Cannot reset the iOS Tor build directory");
+        }
+    }
 
     let openssl_dir = env::var("DEP_OPENSSL_ROOT").ok().map(PathBuf::from);
     let lzma_dir = env::var("DEP_LZMA_ROOT").ok().map(PathBuf::from);
@@ -328,6 +369,7 @@ fn build_tor(libevent: Artifacts, path: &Path) {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=IPHONEOS_DEPLOYMENT_TARGET");
     let sources = prepare_native_sources();
     let libevent = build_libevent(&sources.libevent);
     build_tor(libevent, &sources.tor);
