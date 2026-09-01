@@ -92,6 +92,8 @@ enum TorStatus {
     Running {
         #[serde(rename = "socksAddress")]
         socks_address: String,
+        #[serde(rename = "controlAddress")]
+        control_address: String,
         connectivity: Connectivity,
     },
     Stopping,
@@ -403,12 +405,14 @@ pub fn start(config: TorConfig) -> NativeResult<String> {
                 return Err(native_error("TOR_STOPPED", "Tor stopped during startup"));
             }
 
+            let control_address = service.control_port.trim().to_string();
             let status = {
                 let mut inner = manager.inner.lock().unwrap();
                 inner.service = Some(service);
                 inner.start_in_progress = false;
                 inner.set_status(TorStatus::Running {
                     socks_address: format!("127.0.0.1:{}", config.socks_port),
+                    control_address,
                     connectivity: Connectivity {
                         network: connectivity.0.into(),
                         circuit_established: connectivity.1,
@@ -785,6 +789,7 @@ mod tests {
     fn serializes_public_status_shape() {
         let status = TorStatus::Running {
             socks_address: "127.0.0.1:19050".to_string(),
+            control_address: "127.0.0.1:19051".to_string(),
             connectivity: Connectivity {
                 network: NetworkState::Up,
                 circuit_established: true,
@@ -792,7 +797,7 @@ mod tests {
         };
         assert_eq!(
             serialize_status(&status).unwrap(),
-            r#"{"state":"running","socksAddress":"127.0.0.1:19050","connectivity":{"network":"up","circuitEstablished":true}}"#
+            r#"{"state":"running","socksAddress":"127.0.0.1:19050","controlAddress":"127.0.0.1:19051","connectivity":{"network":"up","circuitEstablished":true}}"#
         );
     }
 
@@ -831,6 +836,7 @@ mod tests {
         let manager = TorManager::new();
         manager.inner.lock().unwrap().status = TorStatus::Running {
             socks_address: "127.0.0.1:19050".to_string(),
+            control_address: "127.0.0.1:19051".to_string(),
             connectivity: Connectivity {
                 network: NetworkState::Up,
                 circuit_established: true,

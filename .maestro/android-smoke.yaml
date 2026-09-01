@@ -5,6 +5,7 @@ appId: com.reactnativenitrotorexample
 - extendedWaitUntil:
     visible: Tor is ready
     timeout: 180000
+- assertVisible: Control endpoint
 - pressKey: HOME
 - launchApp:
     stopApp: false

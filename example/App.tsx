@@ -85,6 +85,7 @@ interface TorState {
   errorMessage: string | undefined;
   onionUrl: string | undefined;
   socksAddress: string | undefined;
+  controlAddress: string | undefined;
 }
 
 interface RequestResult {
@@ -107,6 +108,7 @@ export default function TorApp() {
     errorMessage: undefined,
     onionUrl: undefined,
     socksAddress: undefined,
+    controlAddress: undefined,
   });
   const [getResult, setGetResult] = useState<RequestResult | null>(null);
   const [onionGetResult, setOnionGetResult] = useState<RequestResult | null>(
@@ -205,6 +207,7 @@ export default function TorApp() {
           errorMessage: undefined,
           onionUrl: hiddenService.onionAddress,
           socksAddress: status.socksAddress,
+          controlAddress: status.controlAddress,
         });
       } catch (error: any) {
         console.error('Error in Tor initialization:', error);
@@ -540,6 +543,13 @@ export default function TorApp() {
                   <Text style={styles.detailLabel}>SOCKS proxy</Text>
                   <Text selectable style={styles.detailValue}>
                     {torState.socksAddress}
+                  </Text>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Control endpoint</Text>
+                  <Text selectable style={styles.detailValue}>
+                    {torState.controlAddress}
                   </Text>
                 </View>
                 <View style={styles.detailDivider} />

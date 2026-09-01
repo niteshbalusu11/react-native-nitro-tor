@@ -19,6 +19,7 @@ jest.mock('react-native-nitro-tor', () => ({
       start: jest.fn().mockResolvedValue({
         state: 'running',
         socksAddress: '127.0.0.1:9050',
+        controlAddress: '127.0.0.1:9051',
         connectivity: { network: 'up', circuitEstablished: true },
       }),
       stop: jest.fn().mockResolvedValue(undefined),

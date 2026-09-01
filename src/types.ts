@@ -23,6 +23,7 @@ export interface StartingTorStatus {
 export interface RunningTorStatus {
   state: 'running';
   socksAddress: string;
+  controlAddress: string;
   connectivity: {
     network: 'up' | 'down' | 'unknown';
     circuitEstablished: boolean;

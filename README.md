@@ -32,7 +32,11 @@ try {
     socksPort: 9050,
     bootstrapTimeoutMs: 60_000,
   });
-  console.log(running.socksAddress, running.connectivity);
+  console.log(
+    running.socksAddress,
+    running.controlAddress,
+    running.connectivity,
+  );
 } catch (error) {
   if (error instanceof TorError) {
     console.error(error.code, error.message);
@@ -64,6 +68,7 @@ type TorStatus =
   | {
       state: 'running';
       socksAddress: string;
+      controlAddress: string;
       connectivity: {
         network: 'up' | 'down' | 'unknown';
         circuitEstablished: boolean;
@@ -74,6 +79,20 @@ type TorStatus =
 ```
 
 The facade refreshes native status when the app returns to the foreground. Listener failures are isolated from other listeners.
+
+`controlAddress` is the Tor control endpoint for integrations such as an embedded LND node. Tor uses `SAFECOOKIE` authentication, so LND can discover the cookie during the control-protocol handshake; do not set `tor.password`:
+
+```ts
+const running = await Tor.daemon.start(config);
+
+const lndArguments = [
+  '--tor.active',
+  `--tor.socks=${running.socksAddress}`,
+  `--tor.control=${running.controlAddress}`,
+];
+```
+
+The endpoint is available only while the daemon is running. The library retains its own authenticated control connection internally; callers should open a separate connection rather than taking ownership of the Tor process.
 
 Request a new circuit identity after Tor is running:
 

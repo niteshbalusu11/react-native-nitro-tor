@@ -39,7 +39,7 @@ describe('Tor facade', () => {
 
   it('maps the public start config and requires a running result', async () => {
     mockNative.start.mockResolvedValue(
-      '{"state":"running","socksAddress":"127.0.0.1:19050","connectivity":{"network":"up","circuitEstablished":true}}',
+      '{"state":"running","socksAddress":"127.0.0.1:19050","controlAddress":"127.0.0.1:19051","connectivity":{"network":"up","circuitEstablished":true}}',
     );
 
     await expect(
@@ -48,7 +48,11 @@ describe('Tor facade', () => {
         socksPort: 19050,
         bootstrapTimeoutMs: 45_000,
       }),
-    ).resolves.toMatchObject({ state: 'running', socksAddress: '127.0.0.1:19050' });
+    ).resolves.toMatchObject({
+      state: 'running',
+      socksAddress: '127.0.0.1:19050',
+      controlAddress: '127.0.0.1:19051',
+    });
     expect(mockNative.start).toHaveBeenCalledWith({
       data_directory: '/tmp/tor',
       socks_port: 19050,
@@ -114,7 +118,7 @@ describe('Tor facade', () => {
     nativeListener('{"state":"stopping"}');
     expect(second).toHaveBeenCalledWith({ state: 'stopping' });
 
-    mockNative.getStatus.mockResolvedValue('{"state":"running","socksAddress":"127.0.0.1:19050","connectivity":{"network":"unknown","circuitEstablished":false}}');
+    mockNative.getStatus.mockResolvedValue('{"state":"running","socksAddress":"127.0.0.1:19050","controlAddress":"127.0.0.1:19051","connectivity":{"network":"unknown","circuitEstablished":false}}');
     mockAppStateListener?.('active');
     await Promise.resolve();
     await Promise.resolve();
